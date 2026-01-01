@@ -12,10 +12,6 @@ bin/
 node_modules/
 npm-debug.log
 
-# Go
-vendor/
-go.work
-
 # OS
 .DS_Store
 Thumbs.db
@@ -25,4 +21,3 @@ Thumbs.db
 .vscode/
 .cursor/
 *.swp
-
