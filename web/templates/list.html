@@ -5,12 +5,12 @@
         <button>▽</button>
     </header>
 
-    <section class="summary">
-        <small>Spent this month</small>
-        <div class="total"><span class="currency">€</span>{{printf "%.2f" .Total}}</div>
-    </section>
-
     <section class="expenses">
+        <section class="summary">
+            <small>Spent this month</small>
+            <div class="total"><span class="currency">€</span>{{printf "%.2f" .Total}}</div>
+        </section>
+
         {{range .Groups}}
         <div class="group">
             <div class="group-header">

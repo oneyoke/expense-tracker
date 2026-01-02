@@ -1,6 +1,6 @@
 /* ========== Variables ========== */
 :root {
-  --bg: #faf8f5;
+  --bg: #fffefb;
   --surface: #fff;
   --text: #2d2a26;
   --muted: #8a8680;
@@ -70,7 +70,7 @@ body {
 
 .summary {
   text-align: center;
-  padding: 1.5rem 1rem 2rem;
+  padding: 1.5rem 0 2rem;
 }
 
 .summary small {
@@ -85,16 +85,15 @@ body {
 }
 
 .summary .total .currency {
-  font-size: 0.5em;
+  font-size: 0.6em;
   color: var(--muted);
-  vertical-align: super;
   margin-right: 0.1em;
 }
 
 .expenses {
   flex: 1;
   overflow-y: auto;
-  padding: 0 1rem 6rem;
+  padding: 0 1rem 1rem;
 }
 
 .group-header {
@@ -167,18 +166,12 @@ body {
 
 /* FAB */
 .fab-bar {
-  position: fixed;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.5rem 1.25rem;
+  border-top: 1px solid var(--border);
+  padding: 1rem;
   display: flex;
-  gap: 1.5rem;
+  justify-content: space-around;
   align-items: center;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
 
 .fab-bar button {
@@ -361,7 +354,87 @@ body {
 /* ========== Responsive ========== */
 @media (min-width: 640px) {
   .container { padding: 0 1.5rem; }
-  .expenses { padding: 0 1.5rem 6rem; }
+  .expenses { padding: 0 1.5rem 1rem; }
   .selectors { padding: 0 1.5rem 1rem; }
   .keypad { padding: 0.5rem 1.5rem 2rem; }
+}
+
+@media (min-width: 768px) {
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f0f2f5;
+  }
+
+  #content {
+    width: 100%;
+    max-width: 1024px;
+    height: 90vh;
+    background: var(--bg);
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screen {
+    height: 100%;
+  }
+
+  /* List Screen Layout */
+  .list-screen {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    grid-template-rows: 60px 1fr;
+    grid-template-areas:
+      "sidebar header"
+      "sidebar expenses";
+  }
+
+  .list-screen .header {
+    grid-area: header;
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+  }
+
+  .list-screen .summary {
+    grid-area: sidebar;
+    border-right: 1px solid var(--border);
+    padding: 3rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    background: var(--surface);
+    height: 100%;
+  }
+
+  .expenses {
+    grid-area: expenses;
+    padding: 1rem 2rem 2rem;
+  }
+
+  /* FAB adaptation */
+  .fab-bar {
+    grid-area: sidebar;
+    align-self: end;
+    position: static;
+    transform: none;
+    width: 100%;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding-bottom: 2rem;
+    justify-content: center;
+  }
+
+  /* Create Screen adaptation */
+  .create-screen {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
 }
