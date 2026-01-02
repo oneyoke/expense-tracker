@@ -38,7 +38,12 @@ func setupRouter(h *handlers.Handlers, staticDir string) *http.ServeMux {
 }
 
 func main() {
-	db, err := storage.NewDB("expenses.db")
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "expenses.db"
+	}
+
+	db, err := storage.NewDB(dbPath)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
@@ -47,8 +52,16 @@ func main() {
 	h := handlers.NewHandlers(db, "web/templates")
 	mux := setupRouter(h, "web/static")
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = ":8080"
+	}
+	if port[0] != ':' {
+		port = ":" + port
+	}
+
 	srv := &http.Server{
-		Addr:              ":8080",
+		Addr:              port,
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -57,7 +70,7 @@ func main() {
 	serverErrors := make(chan error, 1)
 
 	go func() {
-		log.Println("API server starting on :8080")
+		log.Printf("API server starting on %s", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serverErrors <- err
 		}

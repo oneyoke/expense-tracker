@@ -13,16 +13,20 @@ import (
 	"time"
 )
 
+// Handlers holds dependencies for HTTP handlers.
 type Handlers struct {
 	db          *storage.DB
 	templateDir string
 }
 
+// NewHandlers creates a new Handlers instance.
 func NewHandlers(db *storage.DB, templateDir string) *Handlers {
 	return &Handlers{db: db, templateDir: templateDir}
 }
 
 // ... (keep CategoryStyle and getCategoryStyle as they are used in List) ...
+
+// CategoryStyle defines the visual style for a category.
 type CategoryStyle struct {
 	Icon string
 	Bg   string
@@ -44,6 +48,7 @@ func getCategoryStyle(category string) CategoryStyle {
 	return styles["other"]
 }
 
+// ExpenseItem represents an expense in the list view.
 type ExpenseItem struct {
 	models.Expense
 	Time          string
@@ -51,6 +56,7 @@ type ExpenseItem struct {
 	IsIncome      bool
 }
 
+// ExpenseGroup groups expenses by date.
 type ExpenseGroup struct {
 	Title string
 	Date  string
@@ -58,17 +64,20 @@ type ExpenseGroup struct {
 	Items []ExpenseItem
 }
 
+// ListViewModel is the data passed to the list view template.
 type ListViewModel struct {
 	Total  float64
 	Groups []ExpenseGroup
 }
 
+// FormViewModel is the data passed to the create/edit form template.
 type FormViewModel struct {
 	Expense       *models.Expense
 	IsEdit        bool
 	FormattedDate string
 }
 
+// ListExpenses renders the list of expenses.
 func (h *Handlers) ListExpenses(w http.ResponseWriter, r *http.Request) {
 	expenses, err := h.db.ListExpenses()
 	if err != nil {
@@ -105,10 +114,12 @@ func (h *Handlers) ListExpenses(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "list.html", ListViewModel{Total: totalSpent, Groups: groups})
 }
 
+// CreateExpenseForm renders the form to create a new expense.
 func (h *Handlers) CreateExpenseForm(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "create.html", FormViewModel{IsEdit: false})
 }
 
+// EditExpenseForm renders the form to edit an existing expense.
 func (h *Handlers) EditExpenseForm(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if expense, err := h.db.GetExpense(id); err == nil {
@@ -122,6 +133,7 @@ func (h *Handlers) EditExpenseForm(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// CreateExpense handles the creation of a new expense.
 func (h *Handlers) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	amount, desc, cat, date, err := parseForm(r)
 	if err != nil {
@@ -135,6 +147,7 @@ func (h *Handlers) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Location", `{"path":"/expenses", "target":"#content"}`)
 }
 
+// UpdateExpense handles the update of an existing expense.
 func (h *Handlers) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	amount, desc, cat, date, err := parseForm(r)
@@ -151,17 +164,17 @@ func (h *Handlers) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Location", `{"path":"/expenses", "target":"#content"}`)
 }
 
-func parseForm(r *http.Request) (float64, string, string, time.Time, error) {
+func parseForm(r *http.Request) (amount float64, desc, category string, date time.Time, err error) {
 	if err := r.ParseForm(); err != nil {
 		return 0, "", "", time.Time{}, err
 	}
-	amount, _ := strconv.ParseFloat(r.FormValue("amount"), 64)
-	desc := r.FormValue("description")
+	amount, _ = strconv.ParseFloat(r.FormValue("amount"), 64)
+	desc = r.FormValue("description")
 	if desc == "" {
 		desc = "Expense"
 	}
 	dateStr := r.FormValue("date")
-	date, err := time.Parse("2006-01-02T15:04", dateStr)
+	date, err = time.Parse("2006-01-02T15:04", dateStr)
 	if err != nil {
 		date, _ = time.Parse(time.RFC3339, dateStr)
 		if date.IsZero() {
@@ -182,7 +195,9 @@ func (h *Handlers) render(w http.ResponseWriter, r *http.Request, viewName strin
 	if r.Header.Get("HX-Request") == "true" {
 		target = "content"
 	}
-	tmpl.ExecuteTemplate(w, target, data)
+	if err := tmpl.ExecuteTemplate(w, target, data); err != nil {
+		log.Printf("Template execution error: %v", err)
+	}
 }
 
 func formatGroupTitle(date time.Time) string {
