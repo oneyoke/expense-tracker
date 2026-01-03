@@ -14,7 +14,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
@@ -70,8 +70,8 @@ body {
 }
 
 .summary .total {
-  font-size: clamp(2.5rem, 10vw, 3.5rem);
-  font-weight: 600;
+  font-size: clamp(3rem, 10vw, 3.5rem);
+  font-weight: 500;
   margin-top: 0.25rem;
 }
 
@@ -137,7 +137,6 @@ body {
 
 .expense-details small {
   color: var(--muted);
-  font-size: 0.8125rem;
 }
 
 .expense-amount {
