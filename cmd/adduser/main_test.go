@@ -2,10 +2,11 @@ package main
 
 import (
 	"bytes"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRun_Success(t *testing.T) {
@@ -18,14 +19,10 @@ func TestRun_Success(t *testing.T) {
 
 	args := []string{"-user", "testuser", "-password", "secret", "-db", dbPath}
 	err := run(args, stdin, stdout, stderr)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	require.NoError(t, err)
 
 	output := stdout.String()
-	if !strings.Contains(output, "User testuser created successfully") {
-		t.Errorf("unexpected stdout: %s", output)
-	}
+	assert.Contains(t, output, "User testuser created successfully")
 }
 
 func TestRun_DuplicateUser(t *testing.T) {
@@ -38,20 +35,15 @@ func TestRun_DuplicateUser(t *testing.T) {
 	args := []string{"-user", "testuser", "-password", "secret", "-db", dbPath}
 
 	// First run
-	if err := run(args, stdin, stdout, stderr); err != nil {
-		t.Fatalf("first run failed: %v", err)
-	}
+	err := run(args, stdin, stdout, stderr)
+	require.NoError(t, err, "first run should succeed")
 
 	// Second run
 	stdout.Reset()
 	stderr.Reset()
-	err := run(args, stdin, stdout, stderr)
-	if err == nil {
-		t.Fatal("expected error on duplicate user, got nil")
-	}
-	if !strings.Contains(err.Error(), "already exists") {
-		t.Errorf("expected 'already exists' error, got: %v", err)
-	}
+	err = run(args, stdin, stdout, stderr)
+	require.Error(t, err, "expected error on duplicate user")
+	assert.Contains(t, err.Error(), "already exists")
 }
 
 func TestRun_MissingUserFlag(t *testing.T) {
@@ -62,17 +54,11 @@ func TestRun_MissingUserFlag(t *testing.T) {
 	// Missing user
 	args := []string{"-password", "secret"}
 	err := run(args, stdin, stdout, stderr)
-	if err == nil {
-		t.Fatal("expected error for missing user flag, got nil")
-	}
-	if !strings.Contains(err.Error(), "missing required flags: user") {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.Error(t, err, "expected error for missing user flag")
+	assert.Contains(t, err.Error(), "missing required flags: user")
 
 	// Usage should be printed
-	if !strings.Contains(stdout.String(), "Usage:") {
-		t.Errorf("expected usage info in stdout")
-	}
+	assert.Contains(t, stdout.String(), "Usage:")
 }
 
 func TestRun_InteractivePassword(t *testing.T) {
@@ -87,18 +73,12 @@ func TestRun_InteractivePassword(t *testing.T) {
 	// Omit -password flag
 	args := []string{"-user", "interactive_user", "-db", dbPath}
 	err := run(args, stdin, stdout, stderr)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	require.NoError(t, err)
 
 	output := stdout.String()
 	// Should verify that it prompted for password
-	if !strings.Contains(output, "Password: ") {
-		t.Errorf("expected password prompt in stdout")
-	}
-	if !strings.Contains(output, "User interactive_user created successfully") {
-		t.Errorf("unexpected stdout: %s", output)
-	}
+	assert.Contains(t, output, "Password: ")
+	assert.Contains(t, output, "User interactive_user created successfully")
 }
 
 func TestRun_InteractivePassword_Empty(t *testing.T) {
@@ -111,20 +91,15 @@ func TestRun_InteractivePassword_Empty(t *testing.T) {
 	// Omit -password flag
 	args := []string{"-user", "empty_pass_user"}
 	err := run(args, stdin, stdout, stderr)
-	if err == nil {
-		t.Fatal("expected error for empty password, got nil")
-	}
-	if !strings.Contains(err.Error(), "password cannot be empty") {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.Error(t, err, "expected error for empty password")
+	assert.Contains(t, err.Error(), "password cannot be empty")
 }
 
 func TestRun_EnvVarOverride(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_env.db")
 
-	os.Setenv("DB_PATH", dbPath)
-	defer os.Unsetenv("DB_PATH")
+	t.Setenv("DB_PATH", dbPath)
 
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
@@ -133,14 +108,10 @@ func TestRun_EnvVarOverride(t *testing.T) {
 	// Do not pass -db flag, let it use env var
 	args := []string{"-user", "envuser", "-password", "secret"}
 	err := run(args, stdin, stdout, stderr)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify DB file was created at dbPath
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		t.Errorf("expected DB file at %s, but it does not exist", dbPath)
-	}
+	assert.FileExists(t, dbPath)
 }
 
 func TestRun_InvalidDBPath(t *testing.T) {
@@ -153,13 +124,8 @@ func TestRun_InvalidDBPath(t *testing.T) {
 
 	args := []string{"-user", "failuser", "-password", "secret", "-db", tmpDir}
 	err := run(args, stdin, stdout, stderr)
-	if err == nil {
-		t.Fatal("expected error for invalid db path, got nil")
-	}
-	// Error message depends on OS/sqlite driver, but should be non-nil
-	if !strings.Contains(err.Error(), "failed to open database") {
-		t.Errorf("expected 'failed to open database' error, got: %v", err)
-	}
+	require.Error(t, err, "expected error for invalid db path")
+	assert.Contains(t, err.Error(), "failed to open database")
 }
 
 func TestRun_InvalidFlag(t *testing.T) {
@@ -169,12 +135,6 @@ func TestRun_InvalidFlag(t *testing.T) {
 
 	args := []string{"-invalid"}
 	err := run(args, stdin, stdout, stderr)
-	if err == nil {
-		t.Fatal("expected error for invalid flag, got nil")
-	}
-	// flag package returns error for undefined flags
-	// error message usually "flag provided but not defined: -invalid"
-	if !strings.Contains(err.Error(), "flag provided but not defined") {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.Error(t, err, "expected error for invalid flag")
+	assert.Contains(t, err.Error(), "flag provided but not defined")
 }

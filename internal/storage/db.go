@@ -108,10 +108,15 @@ func (db *DB) UpdateExpense(e *models.Expense) error {
 	return err
 }
 
-// ListExpenses retrieves all expenses from the database, ordered by date descending.
+// ListExpenses retrieves expenses for the current month from the database, ordered by date descending.
 func (db *DB) ListExpenses() ([]models.Expense, error) {
+	// Calculate start of current month
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
 	rows, err := db.conn.Query(
-		"SELECT id, amount, description, category, date FROM expenses ORDER BY date DESC",
+		"SELECT id, amount, description, category, date FROM expenses WHERE date >= ? ORDER BY date DESC",
+		startOfMonth,
 	)
 	if err != nil {
 		return nil, err

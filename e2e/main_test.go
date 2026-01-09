@@ -20,21 +20,20 @@ func TestMain(m *testing.M) {
 
 func runTestMain(m *testing.M) int {
 	// 1. Build the binary
-	// We assume the test is run from the e2e directory (via go test ./e2e/...)
-	// so the main package is at ../cmd/server
 	buildPath := filepath.Join(os.TempDir(), "expense-tracker-test")
-	cmd := exec.Command("go", "build", "-o", buildPath, "../cmd/server")
-	// If running from root, adjust path
-	if _, err := os.Stat("../cmd/server"); os.IsNotExist(err) {
-		// Try absolute path or assume running from root
+	
+	// Determine correct path to cmd/server
+	serverPath := "../cmd/server"
+	if _, err := os.Stat(serverPath); os.IsNotExist(err) {
 		if _, err := os.Stat("cmd/server"); err == nil {
-			cmd = exec.Command("go", "build", "-o", buildPath, "./cmd/server")
+			serverPath = "./cmd/server"
 		} else {
 			fmt.Println("Could not find cmd/server to build")
 			return 1
 		}
 	}
 
+	cmd := exec.Command("go", "build", "-o", buildPath, serverPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("Failed to build app: %v\n%s\n", err, output)
@@ -67,17 +66,7 @@ func runTestMain(m *testing.M) int {
 	}
 
 	// Wait for server to be ready
-	ready := false
-	for range 50 {
-		time.Sleep(100 * time.Millisecond)
-		resp, err := http.Get(appURL + "/expenses")
-		if err == nil && resp.StatusCode == 200 {
-			ready = true
-			resp.Body.Close()
-			break
-		}
-	}
-
+	ready := waitForServer(appURL, 50, 100*time.Millisecond)
 	if !ready {
 		fmt.Println("Server failed to start or is not reachable")
 		serverCmd.Process.Kill()
@@ -93,4 +82,19 @@ func runTestMain(m *testing.M) int {
 	}
 
 	return code
+}
+
+// waitForServer waits for the server to become ready
+func waitForServer(url string, maxAttempts int, interval time.Duration) bool {
+	for i := 0; i < maxAttempts; i++ {
+		time.Sleep(interval)
+		resp, err := http.Get(url + "/expenses")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 || resp.StatusCode == 302 {
+				return true
+			}
+		}
+	}
+	return false
 }

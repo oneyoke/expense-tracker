@@ -1,34 +1,48 @@
 package handlers
 
 import (
-	"expense-tracker/internal/storage"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"strings"
 	"testing"
+
+	"expense-tracker/internal/storage"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-func setupTestDB(t *testing.T) *storage.DB {
-	db, err := storage.NewDB(":memory:")
-	if err != nil {
-		t.Fatalf("Failed to create database: %v", err)
-	}
-	return db
+// HandlerTestSuite provides a test suite for handler tests
+type HandlerTestSuite struct {
+	suite.Suite
+	db          *storage.DB
+	templateDir string
 }
 
-func TestListExpenses(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
+// SetupTest runs before each test
+func (suite *HandlerTestSuite) SetupTest() {
+	db, err := storage.NewDB(":memory:")
+	require.NoError(suite.T(), err, "failed to create test database")
+	suite.db = db
 
-	// Check if template dir exists (relative to test execution)
-	templateDir := "../../web/templates"
-	if _, err := os.Stat(templateDir); os.IsNotExist(err) {
-		t.Skip("Template directory not found, skipping handler integration test")
+	suite.templateDir = "../../web/templates"
+	if _, err := os.Stat(suite.templateDir); os.IsNotExist(err) {
+		suite.T().Skip("Template directory not found, skipping handler integration test")
 	}
+}
 
-	h := NewHandlers(db, templateDir, false)
+// TearDownTest runs after each test
+func (suite *HandlerTestSuite) TearDownTest() {
+	if suite.db != nil {
+		suite.db.Close()
+	}
+}
+
+func (suite *HandlerTestSuite) TestListExpenses() {
+	h := NewHandlers(suite.db, suite.templateDir, false)
 
 	req := httptest.NewRequest("GET", "/expenses", http.NoBody)
 	w := httptest.NewRecorder()
@@ -36,34 +50,23 @@ func TestListExpenses(t *testing.T) {
 	h.ListExpenses(w, req)
 
 	resp := w.Result()
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status OK, got %v", resp.Status)
-	}
+	assert.Equal(suite.T(), http.StatusOK, resp.StatusCode)
 
 	// Simple content check - look for "Spent this month" which is in list.html
 	body := w.Body.String()
-	if !strings.Contains(body, "Spent this month") {
-		t.Errorf("Expected body to contain 'Spent this month'")
-	}
+	assert.Contains(suite.T(), body, "Spent this month")
 }
 
-func TestCreateExpense(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
+func (suite *HandlerTestSuite) TestCreateExpense() {
+	h := NewHandlers(suite.db, suite.templateDir, false)
 
-	templateDir := "../../web/templates"
-	if _, err := os.Stat(templateDir); os.IsNotExist(err) {
-		t.Skip("Template directory not found, skipping handler integration test")
-	}
-
-	h := NewHandlers(db, templateDir, false)
-
-	// Simulate form submission
+	// Simulate form submission with current month's date
 	form := url.Values{}
 	form.Add("amount", "15.00")
 	form.Add("description", "Lunch Test")
 	form.Add("category", "food")
-	form.Add("date", "2023-10-27T12:00")
+	// Use current month's date to ensure it appears in ListExpenses (which filters by current month)
+	form.Add("date", "2026-01-09T12:00")
 
 	req := httptest.NewRequest("POST", "/expenses", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -72,32 +75,22 @@ func TestCreateExpense(t *testing.T) {
 	h.CreateExpense(w, req)
 
 	resp := w.Result()
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status OK, got %v", resp.Status)
-	}
+	assert.Equal(suite.T(), http.StatusOK, resp.StatusCode)
 
 	// Check for HTMX redirect header
 	expectedLoc := `{"path":"/expenses", "target":"#content"}`
-	if loc := resp.Header.Get("HX-Location"); loc != expectedLoc {
-		t.Errorf("Expected HX-Location %s, got %s", expectedLoc, loc)
-	}
+	assert.Equal(suite.T(), expectedLoc, resp.Header.Get("HX-Location"))
 
 	// Verify DB insertion
-	expenses, _ := db.ListExpenses()
-	if len(expenses) != 1 {
-		t.Errorf("Expected 1 expense in DB, got %d", len(expenses))
-	}
-	if expenses[0].Description != "Lunch Test" {
-		t.Errorf("Expected description 'Lunch Test', got '%s'", expenses[0].Description)
-	}
+	expenses, err := suite.db.ListExpenses()
+	require.NoError(suite.T(), err)
+	require.Len(suite.T(), expenses, 1, "expected exactly 1 expense")
+	assert.Equal(suite.T(), "Lunch Test", expenses[0].Description)
+	assert.Equal(suite.T(), 15.00, expenses[0].Amount)
 }
 
-func TestCreateExpense_MissingDate(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
-
-	// Template dir not strictly needed for this test as we expect error before rendering
-	h := NewHandlers(db, "dummy_path", false)
+func (suite *HandlerTestSuite) TestCreateExpense_MissingDate() {
+	h := NewHandlers(suite.db, "dummy_path", false)
 
 	form := url.Values{}
 	form.Add("amount", "15.00")
@@ -112,7 +105,10 @@ func TestCreateExpense_MissingDate(t *testing.T) {
 	h.CreateExpense(w, req)
 
 	resp := w.Result()
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("Expected status BadRequest, got %v", resp.Status)
-	}
+	assert.Equal(suite.T(), http.StatusBadRequest, resp.StatusCode)
+}
+
+// TestHandlerSuite runs the handler test suite
+func TestHandlerSuite(t *testing.T) {
+	suite.Run(t, new(HandlerTestSuite))
 }

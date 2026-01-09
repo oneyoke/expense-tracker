@@ -4,124 +4,134 @@ import (
 	"testing"
 
 	"github.com/playwright-community/playwright-go"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestApp(t *testing.T) {
+// E2ETestSuite provides a test suite for end-to-end tests
+type E2ETestSuite struct {
+	suite.Suite
+	pw      *playwright.Playwright
+	browser playwright.Browser
+	page    playwright.Page
+	expect  playwright.PlaywrightAssertions
+}
+
+// SetupSuite runs once before all tests
+func (suite *E2ETestSuite) SetupSuite() {
 	pw, err := playwright.Run()
-	if err != nil {
-		t.Fatalf("could not launch playwright: %v", err)
-	}
+	require.NoError(suite.T(), err, "could not launch playwright")
+	suite.pw = pw
+
 	browser, err := pw.Chromium.Launch()
-	if err != nil {
-		t.Fatalf("could not launch chromium: %v", err)
+	require.NoError(suite.T(), err, "could not launch chromium")
+	suite.browser = browser
+
+	suite.expect = playwright.NewPlaywrightAssertions()
+}
+
+// TearDownSuite runs once after all tests
+func (suite *E2ETestSuite) TearDownSuite() {
+	if suite.browser != nil {
+		suite.browser.Close()
 	}
-	defer func() {
-		if err := browser.Close(); err != nil {
-			t.Logf("failed to close browser: %v", err)
-		}
-		if err := pw.Stop(); err != nil {
-			t.Logf("failed to stop playwright: %v", err)
-		}
-	}()
-
-	page, err := browser.NewPage()
-	if err != nil {
-		t.Fatalf("could not create page: %v", err)
+	if suite.pw != nil {
+		suite.pw.Stop()
 	}
+}
 
-	if _, err = page.Goto(appURL); err != nil {
-		t.Fatalf("could not goto: %v", err)
+// SetupTest runs before each test
+func (suite *E2ETestSuite) SetupTest() {
+	page, err := suite.browser.NewPage()
+	require.NoError(suite.T(), err, "could not create page")
+	suite.page = page
+
+	_, err = suite.page.Goto(appURL)
+	require.NoError(suite.T(), err, "could not navigate to app")
+}
+
+// TearDownTest runs after each test
+func (suite *E2ETestSuite) TearDownTest() {
+	if suite.page != nil {
+		suite.page.Close()
 	}
+}
 
-	// Assertions helper
-	expect := playwright.NewPlaywrightAssertions()
-
-	// 0. Login first
+func (suite *E2ETestSuite) login() {
 	// Wait for login form
-	if err := expect.Locator(page.Locator(".login-form")).ToBeVisible(); err != nil {
-		t.Fatalf("Login form not visible: %v", err)
-	}
+	err := suite.expect.Locator(suite.page.Locator(".login-form")).ToBeVisible()
+	require.NoError(suite.T(), err, "login form not visible")
 
 	// Fill in credentials
-	if err = page.Locator("input[name=username]").Fill("testuser"); err != nil {
-		t.Fatalf("failed to fill username: %v", err)
-	}
-	if err = page.Locator("input[name=password]").Fill("testpass123"); err != nil {
-		t.Fatalf("failed to fill password: %v", err)
-	}
+	err = suite.page.Locator("input[name=username]").Fill("testuser")
+	require.NoError(suite.T(), err, "failed to fill username")
+
+	err = suite.page.Locator("input[name=password]").Fill("testpass123")
+	require.NoError(suite.T(), err, "failed to fill password")
 
 	// Submit login
-	if err = page.Locator(".login-btn").Click(); err != nil {
-		t.Fatalf("failed to click login: %v", err)
-	}
+	err = suite.page.Locator(".login-btn").Click()
+	require.NoError(suite.T(), err, "failed to click login")
 
 	// Wait for redirect to expenses page
-	if err := expect.Locator(page.Locator(".list-screen")).ToBeVisible(); err != nil {
-		t.Fatalf("Did not redirect to expenses page after login: %v", err)
-	}
+	err = suite.expect.Locator(suite.page.Locator(".list-screen")).ToBeVisible()
+	require.NoError(suite.T(), err, "did not redirect to expenses page after login")
+}
 
-	// 1. Verify Homepage
-	// Check for "Spent this month" text
-	if err := expect.Locator(page.Locator(".summary small")).ToHaveText("Spent this month"); err != nil {
-		t.Fatalf("Homepage assertion failed: %v", err)
-	}
+func (suite *E2ETestSuite) TestCompleteUserFlow() {
+	// Login
+	suite.login()
 
-	// 2. Create Expense
-	// Click add button
-	if err = page.Locator(".fab-add").Click(); err != nil {
-		t.Fatalf("failed to click add: %v", err)
-	}
+	// Verify Homepage
+	err := suite.expect.Locator(suite.page.Locator(".summary small")).ToHaveText("Spent this month")
+	require.NoError(suite.T(), err, "homepage assertion failed")
+
+	// Create Expense - Click add button
+	err = suite.page.Locator(".fab-add").Click()
+	require.NoError(suite.T(), err, "failed to click add button")
 
 	// Wait for form
-	if err := expect.Locator(page.Locator("#expense-form")).ToBeVisible(); err != nil {
-		t.Fatalf("Form not visible: %v", err)
-	}
+	err = suite.expect.Locator(suite.page.Locator("#expense-form")).ToBeVisible()
+	require.NoError(suite.T(), err, "expense form not visible")
 
 	// Enter Amount: 12.50 using keypad
-	// Note: buttons have text "1", "2", etc.
-	// We use exact match or text match.
 	keys := []string{"1", "2", ".", "5", "0"}
 	for _, key := range keys {
-		// Using text=key selector
-		if err = page.Locator("button:text-is('" + key + "')").Click(); err != nil {
-			t.Fatalf("failed to click key %s: %v", key, err)
-		}
+		err = suite.page.Locator("button:text-is('" + key + "')").Click()
+		require.NoError(suite.T(), err, "failed to click key %s", key)
 	}
 
 	// Verify amount display
-	if err := expect.Locator(page.Locator("#display-amount")).ToHaveText("12.50"); err != nil {
-		t.Fatalf("Amount display mismatch: %v", err)
-	}
+	err = suite.expect.Locator(suite.page.Locator("#display-amount")).ToHaveText("12.50")
+	require.NoError(suite.T(), err, "amount display mismatch")
 
-	// Description
-	if err = page.Locator("input[name=description]").Fill("Lunch Test"); err != nil {
-		t.Fatalf("failed to fill description: %v", err)
-	}
+	// Fill description
+	err = suite.page.Locator("input[name=description]").Fill("Lunch Test")
+	require.NoError(suite.T(), err, "failed to fill description")
 
-	// Category
-	// The selector for options accepts value or label.
-	if _, err = page.Locator("select[name=category]").SelectOption(playwright.SelectOptionValues{
+	// Select category
+	_, err = suite.page.Locator("select[name=category]").SelectOption(playwright.SelectOptionValues{
 		Values: &[]string{"food"},
-	}); err != nil {
-		t.Fatalf("failed to select category: %v", err)
-	}
+	})
+	require.NoError(suite.T(), err, "failed to select category")
 
 	// Submit
-	if err = page.Locator("button.submit").Click(); err != nil {
-		t.Fatalf("failed to submit: %v", err)
-	}
+	err = suite.page.Locator("button.submit").Click()
+	require.NoError(suite.T(), err, "failed to submit expense")
 
-	// 3. Verify in List
-	// Wait for expense item to appear
-	if err := expect.Locator(page.Locator(".expense-item")).ToHaveCount(1); err != nil {
-		t.Fatalf("Expense item count mismatch: %v", err)
-	}
+	// Verify in List - Wait for expense item to appear
+	err = suite.expect.Locator(suite.page.Locator(".expense-item")).ToHaveCount(1)
+	require.NoError(suite.T(), err, "expense item count mismatch")
 
-	item := page.Locator(".expense-item").First()
-	if err := expect.Locator(item.Locator(".expense-details strong")).ToHaveText("Lunch Test"); err != nil {
-		t.Fatalf("Description mismatch: %v", err)
-	}
-	if err := expect.Locator(item.Locator(".expense-amount")).ToContainText("12.50"); err != nil {
-		t.Fatalf("Amount mismatch: %v", err)
-	}
+	item := suite.page.Locator(".expense-item").First()
+	err = suite.expect.Locator(item.Locator(".expense-details strong")).ToHaveText("Lunch Test")
+	require.NoError(suite.T(), err, "description mismatch")
+
+	err = suite.expect.Locator(item.Locator(".expense-amount")).ToContainText("12.50")
+	require.NoError(suite.T(), err, "amount mismatch")
+}
+
+// TestE2ESuite runs the e2e test suite
+func TestE2ESuite(t *testing.T) {
+	suite.Run(t, new(E2ETestSuite))
 }
