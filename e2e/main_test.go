@@ -51,7 +51,12 @@ func runTestMain(m *testing.M) int {
 	appURL = "http://localhost:" + port
 
 	serverCmd := exec.Command(buildPath)
-	serverCmd.Env = append(os.Environ(), "PORT="+port, "DB_PATH="+dbPath)
+	serverCmd.Env = append(os.Environ(),
+		"PORT="+port,
+		"DB_PATH="+dbPath,
+		"ADMIN_USER=testuser",
+		"ADMIN_PASSWORD=testpass123",
+	)
 	serverCmd.Dir = ".." // Run from project root so it finds web/templates
 	serverCmd.Stdout = os.Stdout
 	serverCmd.Stderr = os.Stderr

@@ -65,6 +65,20 @@ The application can be configured via environment variables:
 | `PORT` | The port to listen on | `8080` |
 | `DB_PATH` | Path to the SQLite database file | `expenses.db` |
 
+## User Management
+
+To add a new user, use the `adduser` CLI tool:
+
+```bash
+go run ./cmd/adduser -user <username> -password <password>
+```
+
+You can also specify the database path if it differs from the default `expenses.db`:
+
+```bash
+go run ./cmd/adduser -user <username> -password <password> -db path/to/expenses.db
+```
+
 ## Testing
 
 ### Unit Tests

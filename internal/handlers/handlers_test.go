@@ -28,7 +28,7 @@ func TestListExpenses(t *testing.T) {
 		t.Skip("Template directory not found, skipping handler integration test")
 	}
 
-	h := NewHandlers(db, templateDir)
+	h := NewHandlers(db, templateDir, false)
 
 	req := httptest.NewRequest("GET", "/expenses", http.NoBody)
 	w := httptest.NewRecorder()
@@ -56,7 +56,7 @@ func TestCreateExpense(t *testing.T) {
 		t.Skip("Template directory not found, skipping handler integration test")
 	}
 
-	h := NewHandlers(db, templateDir)
+	h := NewHandlers(db, templateDir, false)
 
 	// Simulate form submission
 	form := url.Values{}
@@ -89,5 +89,30 @@ func TestCreateExpense(t *testing.T) {
 	}
 	if expenses[0].Description != "Lunch Test" {
 		t.Errorf("Expected description 'Lunch Test', got '%s'", expenses[0].Description)
+	}
+}
+
+func TestCreateExpense_MissingDate(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Template dir not strictly needed for this test as we expect error before rendering
+	h := NewHandlers(db, "dummy_path", false)
+
+	form := url.Values{}
+	form.Add("amount", "15.00")
+	form.Add("description", "No Date")
+	form.Add("category", "food")
+	// Missing date
+
+	req := httptest.NewRequest("POST", "/expenses", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	h.CreateExpense(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected status BadRequest, got %v", resp.Status)
 	}
 }

@@ -18,7 +18,7 @@ func TestSetupRouter(t *testing.T) {
 	defer db.Close()
 
 	// Use relative paths for tests running in cmd/server
-	h := handlers.NewHandlers(db, "../../web/templates")
+	h := handlers.NewHandlers(db, "../../web/templates", false)
 	
 	// Ensure template directory exists, otherwise skip handler initialization if it panics (handlers might check for templates)
 	if _, err := os.Stat("../../web/templates"); os.IsNotExist(err) {
@@ -50,10 +50,10 @@ func TestSetupRouter(t *testing.T) {
 			wantStatus: http.StatusOK, // Or 404 if file missing, but let's assume it might be missing in test env if not moved
 		},
 		{
-			name: "List Expenses",
-			method: "GET",
-			path: "/expenses",
-			wantStatus: http.StatusOK,
+			name:       "List Expenses requires auth",
+			method:     "GET",
+			path:       "/expenses",
+			wantStatus: http.StatusFound, // Should redirect to login
 		},
 	}
 

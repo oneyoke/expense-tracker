@@ -36,6 +36,30 @@ func TestApp(t *testing.T) {
 	// Assertions helper
 	expect := playwright.NewPlaywrightAssertions()
 
+	// 0. Login first
+	// Wait for login form
+	if err := expect.Locator(page.Locator(".login-form")).ToBeVisible(); err != nil {
+		t.Fatalf("Login form not visible: %v", err)
+	}
+
+	// Fill in credentials
+	if err = page.Locator("input[name=username]").Fill("testuser"); err != nil {
+		t.Fatalf("failed to fill username: %v", err)
+	}
+	if err = page.Locator("input[name=password]").Fill("testpass123"); err != nil {
+		t.Fatalf("failed to fill password: %v", err)
+	}
+
+	// Submit login
+	if err = page.Locator(".login-btn").Click(); err != nil {
+		t.Fatalf("failed to click login: %v", err)
+	}
+
+	// Wait for redirect to expenses page
+	if err := expect.Locator(page.Locator(".list-screen")).ToBeVisible(); err != nil {
+		t.Fatalf("Did not redirect to expenses page after login: %v", err)
+	}
+
 	// 1. Verify Homepage
 	// Check for "Spent this month" text
 	if err := expect.Locator(page.Locator(".summary small")).ToHaveText("Spent this month"); err != nil {
@@ -101,4 +125,3 @@ func TestApp(t *testing.T) {
 		t.Fatalf("Amount mismatch: %v", err)
 	}
 }
-

@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"context"
+	"errors"
+	"expense-tracker/internal/auth"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/storage"
 	"html/template"
@@ -13,18 +16,177 @@ import (
 	"time"
 )
 
+// Context key type to avoid collisions.
+type contextKey string
+
+const (
+	// UserContextKey is the context key for the authenticated user.
+	UserContextKey contextKey = "user"
+	// SessionCookieName is the name of the session cookie.
+	SessionCookieName = "session"
+	// SessionDuration is how long sessions last (30 days).
+	SessionDuration = 30 * 24 * time.Hour
+)
+
 // Handlers holds dependencies for HTTP handlers.
 type Handlers struct {
-	db          *storage.DB
-	templateDir string
+	db           *storage.DB
+	templateDir  string
+	secureCookie bool
 }
 
 // NewHandlers creates a new Handlers instance.
-func NewHandlers(db *storage.DB, templateDir string) *Handlers {
-	return &Handlers{db: db, templateDir: templateDir}
+func NewHandlers(db *storage.DB, templateDir string, secureCookie bool) *Handlers {
+	return &Handlers{db: db, templateDir: templateDir, secureCookie: secureCookie}
 }
 
-// ... (keep CategoryStyle and getCategoryStyle as they are used in List) ...
+// GetUserFromContext retrieves the authenticated user from request context.
+func GetUserFromContext(r *http.Request) *models.User {
+	if user, ok := r.Context().Value(UserContextKey).(*models.User); ok {
+		return user
+	}
+	return nil
+}
+
+// AuthMiddleware wraps handlers to require authentication.
+// It also implements rolling sessions: if a session is past the halfway point
+// of its lifetime, it automatically renews the session.
+func (h *Handlers) AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(SessionCookieName)
+		if err != nil || cookie.Value == "" {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+
+		sessionInfo, err := h.db.ValidateSessionWithInfo(cookie.Value)
+		if err != nil {
+			// Invalid or expired session, clear the cookie
+			h.clearSessionCookie(w)
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+
+		// Rolling session: renew if past halfway point
+		// This keeps active users logged in while still expiring inactive sessions
+		now := time.Now()
+		timeUntilExpiry := sessionInfo.ExpiresAt.Sub(now)
+		halfSessionDuration := SessionDuration / 2
+
+		if timeUntilExpiry < halfSessionDuration {
+			// Session is in the second half of its lifetime, renew it
+			newExpiresAt := now.Add(SessionDuration)
+			if err := h.db.RenewSession(cookie.Value, newExpiresAt); err == nil {
+				// Update the cookie expiration too
+				http.SetCookie(w, &http.Cookie{
+					Name:     SessionCookieName,
+					Value:    cookie.Value,
+					Path:     "/",
+					MaxAge:   int(SessionDuration.Seconds()),
+					HttpOnly: true,
+					Secure:   h.secureCookie,
+					SameSite: http.SameSiteLaxMode,
+				})
+			}
+			// If renewal fails, just continue with the current session
+		}
+
+		// Add user to context
+		ctx := context.WithValue(r.Context(), UserContextKey, sessionInfo.User)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// LoginViewModel holds data for the login page.
+type LoginViewModel struct {
+	Error string
+}
+
+// LoginForm renders the login page.
+func (h *Handlers) LoginForm(w http.ResponseWriter, r *http.Request) {
+	// If already logged in, redirect to expenses
+	if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value != "" {
+		if _, err := h.db.ValidateSession(cookie.Value); err == nil {
+			http.Redirect(w, r, "/expenses", http.StatusFound)
+			return
+		}
+	}
+	h.render(w, r, "login.html", LoginViewModel{})
+}
+
+// Login handles the login form submission.
+func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.render(w, r, "login.html", LoginViewModel{Error: "Invalid form submission"})
+		return
+	}
+
+	username := strings.TrimSpace(r.FormValue("username"))
+	password := r.FormValue("password")
+
+	if username == "" || password == "" {
+		h.render(w, r, "login.html", LoginViewModel{Error: "Username and password are required"})
+		return
+	}
+
+	user, err := h.db.GetUserByUsername(username)
+	if err != nil || !auth.CheckPassword(password, user.PasswordHash) {
+		h.render(w, r, "login.html", LoginViewModel{Error: "Invalid username or password"})
+		return
+	}
+
+	// Generate session token
+	token, err := auth.GenerateSessionToken()
+	if err != nil {
+		log.Printf("Failed to generate session token: %v", err)
+		h.render(w, r, "login.html", LoginViewModel{Error: "An error occurred. Please try again."})
+		return
+	}
+
+	// Create session in database
+	expiresAt := time.Now().Add(SessionDuration)
+	if err := h.db.CreateSession(token, user.ID, expiresAt); err != nil {
+		log.Printf("Failed to create session: %v", err)
+		h.render(w, r, "login.html", LoginViewModel{Error: "An error occurred. Please try again."})
+		return
+	}
+
+	// Set session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     SessionCookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   int(SessionDuration.Seconds()),
+		HttpOnly: true,
+		Secure:   h.secureCookie,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	http.Redirect(w, r, "/expenses", http.StatusFound)
+}
+
+// Logout handles user logout.
+func (h *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
+	if cookie, err := r.Cookie(SessionCookieName); err == nil {
+		if err := h.db.DeleteSession(cookie.Value); err != nil {
+			log.Printf("Failed to delete session: %v", err)
+		}
+	}
+	h.clearSessionCookie(w)
+	http.Redirect(w, r, "/login", http.StatusFound)
+}
+
+func (h *Handlers) clearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     SessionCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.secureCookie,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
 
 // CategoryDef defines the properties of a category.
 type CategoryDef struct {
@@ -94,6 +256,7 @@ type FormViewModel struct {
 func (h *Handlers) ListExpenses(w http.ResponseWriter, r *http.Request) {
 	expenses, err := h.db.ListExpenses()
 	if err != nil {
+		log.Printf("ListExpenses error: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -102,9 +265,9 @@ func (h *Handlers) ListExpenses(w http.ResponseWriter, r *http.Request) {
 	var totalSpent float64
 
 	for _, e := range expenses {
-		dateStr := e.CreatedAt.Format("2006-01-02")
+		dateStr := e.Date.Format("2006-01-02")
 		if _, ok := groupsMap[dateStr]; !ok {
-			groupsMap[dateStr] = &ExpenseGroup{Date: dateStr, Title: formatGroupTitle(e.CreatedAt)}
+			groupsMap[dateStr] = &ExpenseGroup{Date: dateStr, Title: formatGroupTitle(e.Date)}
 		}
 		group := groupsMap[dateStr]
 		group.Total += e.Amount
@@ -112,7 +275,7 @@ func (h *Handlers) ListExpenses(w http.ResponseWriter, r *http.Request) {
 
 		group.Items = append(group.Items, ExpenseItem{
 			Expense:       e,
-			Time:          e.CreatedAt.Format("15:04"),
+			Time:          e.Date.Format("15:04"),
 			CategoryStyle: getCategoryStyle(e.Category),
 			IsIncome:      strings.Contains(e.Description, "[Income]"),
 		})
@@ -142,7 +305,7 @@ func (h *Handlers) EditExpenseForm(w http.ResponseWriter, r *http.Request) {
 		h.render(w, r, "create.html", FormViewModel{
 			Expense:       expense,
 			IsEdit:        true,
-			FormattedDate: expense.CreatedAt.Format("2006-01-02T15:04"),
+			FormattedDate: expense.Date.Format("2006-01-02T15:04:05"),
 			Categories:    categories,
 		})
 	} else {
@@ -154,10 +317,11 @@ func (h *Handlers) EditExpenseForm(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	amount, desc, cat, date, err := parseForm(r)
 	if err != nil {
-		http.Error(w, "Invalid form", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := h.db.CreateExpense(amount, desc, cat, date); err != nil {
+		log.Printf("CreateExpense error: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -169,12 +333,13 @@ func (h *Handlers) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	amount, desc, cat, date, err := parseForm(r)
 	if err != nil {
-		http.Error(w, "Invalid form", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := h.db.UpdateExpense(&models.Expense{
-		ID: id, Amount: amount, Description: desc, Category: cat, CreatedAt: date,
+		ID: id, Amount: amount, Description: desc, Category: cat, Date: date,
 	}); err != nil {
+		log.Printf("UpdateExpense error: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -191,14 +356,14 @@ func parseForm(r *http.Request) (amount float64, desc, category string, date tim
 		desc = "Expense"
 	}
 	dateStr := r.FormValue("date")
+	if dateStr == "" {
+		return 0, "", "", time.Time{}, errors.New("date is required")
+	}
 	date, err = time.Parse("2006-01-02T15:04", dateStr)
 	if err != nil {
-		date, _ = time.Parse(time.RFC3339, dateStr)
-		if date.IsZero() {
-			date = time.Now()
-		}
+		return 0, "", "", time.Time{}, err
 	}
-	return amount, desc, r.FormValue("category"), date, nil
+	return amount, desc, category, date, nil
 }
 
 func (h *Handlers) render(w http.ResponseWriter, r *http.Request, viewName string, data any) {
@@ -218,12 +383,14 @@ func (h *Handlers) render(w http.ResponseWriter, r *http.Request, viewName strin
 }
 
 func formatGroupTitle(date time.Time) string {
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	if date.Truncate(24 * time.Hour).Equal(today) {
+	dateStr := date.Format("2006-01-02")
+	nowStr := time.Now().Format("2006-01-02")
+
+	if dateStr == nowStr {
 		return "TODAY"
 	}
-	if date.Truncate(24 * time.Hour).Equal(today.AddDate(0, 0, -1)) {
+	yesterdayStr := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	if dateStr == yesterdayStr {
 		return "YESTERDAY"
 	}
 	return strings.ToUpper(date.Format("Mon, 02 Jan '06"))

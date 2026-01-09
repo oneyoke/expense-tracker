@@ -21,7 +21,7 @@
 
         <section class="selectors">
             <label class="selector">
-                <input type="datetime-local" name="date" id="date-input" value="{{if .IsEdit}}{{.FormattedDate}}{{end}}" onchange="updateDateDisplay(this)">
+                <input type="datetime-local" name="date" id="date-input" value="{{if .IsEdit}}{{.FormattedDate}}{{end}}" onchange="updateDateDisplay(this)" onclick="this.showPicker()">
                 <div class="selector-btn">
                     <span>📅</span><span id="date-display">Today</span>
                 </div>

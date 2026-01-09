@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"expense-tracker/internal/auth"
 	"expense-tracker/internal/handlers"
 	"expense-tracker/internal/storage"
 	"log"
@@ -15,11 +16,16 @@ import (
 func setupRouter(h *handlers.Handlers, staticDir string) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	// Static files
+	// Static files (public)
 	fs := http.FileServer(http.Dir(staticDir))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", fs))
 
-	// Routes
+	// Auth routes (public)
+	mux.HandleFunc("GET /login", h.LoginForm)
+	mux.HandleFunc("POST /login", h.Login)
+	mux.HandleFunc("GET /logout", h.Logout)
+
+	// Root redirect
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			http.Redirect(w, r, "/expenses", http.StatusFound)
@@ -28,13 +34,48 @@ func setupRouter(h *handlers.Handlers, staticDir string) *http.ServeMux {
 		http.NotFound(w, r)
 	})
 
-	mux.HandleFunc("GET /expenses", h.ListExpenses)
-	mux.HandleFunc("GET /expenses/create", h.CreateExpenseForm)
-	mux.HandleFunc("POST /expenses", h.CreateExpense)
-	mux.HandleFunc("GET /expenses/{id}/edit", h.EditExpenseForm)
-	mux.HandleFunc("POST /expenses/{id}", h.UpdateExpense)
+	// Protected routes (require authentication)
+	mux.Handle("GET /expenses", h.AuthMiddleware(http.HandlerFunc(h.ListExpenses)))
+	mux.Handle("GET /expenses/create", h.AuthMiddleware(http.HandlerFunc(h.CreateExpenseForm)))
+	mux.Handle("POST /expenses", h.AuthMiddleware(http.HandlerFunc(h.CreateExpense)))
+	mux.Handle("GET /expenses/{id}/edit", h.AuthMiddleware(http.HandlerFunc(h.EditExpenseForm)))
+	mux.Handle("POST /expenses/{id}", h.AuthMiddleware(http.HandlerFunc(h.UpdateExpense)))
 
 	return mux
+}
+
+// bootstrapUser creates a default user if none exist and credentials are provided via env vars.
+func bootstrapUser(db *storage.DB) {
+	count, err := db.UserCount()
+	if err != nil {
+		log.Printf("Warning: could not check user count: %v", err)
+		return
+	}
+
+	if count > 0 {
+		return // Users already exist
+	}
+
+	username := os.Getenv("ADMIN_USER")
+	password := os.Getenv("ADMIN_PASSWORD")
+
+	if username == "" || password == "" {
+		log.Println("No users exist. Set ADMIN_USER and ADMIN_PASSWORD env vars to create one.")
+		return
+	}
+
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		log.Printf("Failed to hash password: %v", err)
+		return
+	}
+
+	if _, err := db.CreateUser(username, hash); err != nil {
+		log.Printf("Failed to create admin user: %v", err)
+		return
+	}
+
+	log.Printf("Created admin user: %s", username)
 }
 
 func main() {
@@ -49,7 +90,13 @@ func main() {
 	}
 	defer db.Close()
 
-	h := handlers.NewHandlers(db, "web/templates")
+	// Create initial user if needed
+	bootstrapUser(db)
+
+	// Use secure cookies when running with HTTPS (production)
+	secureCookie := os.Getenv("SECURE_COOKIE") == "true"
+
+	h := handlers.NewHandlers(db, "web/templates", secureCookie)
 	mux := setupRouter(h, "web/static")
 
 	port := os.Getenv("PORT")
