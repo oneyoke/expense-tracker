@@ -73,3 +73,66 @@ func (db *DB) ClearExpenses() error {
 	_, err := db.conn.Exec("DELETE FROM expenses")
 	return err
 }
+
+// GetExpensesByMonth retrieves expenses for a specific month.
+func (db *DB) GetExpensesByMonth(year, month int) ([]models.Expense, error) {
+	startOfMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+
+	rows, err := db.conn.Query(
+		"SELECT id, amount, description, category, date FROM expenses WHERE date >= ? AND date < ? ORDER BY date DESC",
+		startOfMonth, endOfMonth,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var expenses []models.Expense
+	for rows.Next() {
+		var e models.Expense
+		if err := rows.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date); err != nil {
+			return nil, err
+		}
+		expenses = append(expenses, e)
+	}
+
+	return expenses, rows.Err()
+}
+
+// CategoryTotal represents spending total for a category.
+type CategoryTotal struct {
+	Category string
+	Total    float64
+	Count    int
+}
+
+// GetCategoryTotalsByMonth retrieves spending totals by category for a specific month.
+func (db *DB) GetCategoryTotalsByMonth(year, month int) ([]CategoryTotal, error) {
+	startOfMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+
+	rows, err := db.conn.Query(
+		`SELECT category, SUM(amount) as total, COUNT(*) as count 
+		 FROM expenses 
+		 WHERE date >= ? AND date < ? 
+		 GROUP BY category 
+		 ORDER BY total DESC`,
+		startOfMonth, endOfMonth,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var totals []CategoryTotal
+	for rows.Next() {
+		var ct CategoryTotal
+		if err := rows.Scan(&ct.Category, &ct.Total, &ct.Count); err != nil {
+			return nil, err
+		}
+		totals = append(totals, ct)
+	}
+
+	return totals, rows.Err()
+}

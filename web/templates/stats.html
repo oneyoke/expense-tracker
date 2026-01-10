@@ -1,0 +1,97 @@
+{{define "content"}}
+<div class="screen stats-screen">
+    <header class="header">
+        <button hx-get="/expenses" hx-target="#content" hx-push-url="true">←</button>
+        <h1>Statistics</h1>
+        <div></div>
+    </header>
+
+    <section class="stats-content">
+        <!-- Month Selector -->
+        <div class="month-selector">
+            <button class="month-nav" 
+                    hx-get="/statistics?year={{.PrevYear}}&month={{.PrevMonth}}" 
+                    hx-target="#content" 
+                    hx-push-url="true">‹</button>
+            <h2 class="month-title">{{.MonthName}} {{.Year}}</h2>
+            <button class="month-nav" 
+                    {{if not .IsCurrentMonth}}
+                    hx-get="/statistics?year={{.NextYear}}&month={{.NextMonth}}" 
+                    hx-target="#content" 
+                    hx-push-url="true"
+                    {{else}}
+                    disabled style="opacity: 0.3; cursor: not-allowed;"
+                    {{end}}>›</button>
+        </div>
+
+        <!-- Total Summary -->
+        <section class="stats-summary">
+            <small>Total spent</small>
+            <div class="total"><span class="currency">€</span>{{printf "%.2f" .Total}}</div>
+        </section>
+
+        <!-- Category Breakdown -->
+        {{if .Categories}}
+        <section class="category-breakdown">
+            <h3>Spending by Category</h3>
+            <div class="category-list">
+                {{range .Categories}}
+                <div class="category-item">
+                    <div class="category-info">
+                        <div class="cat-icon" style="background-color: {{.CategoryStyle.Color}}">{{.CategoryStyle.Icon}}</div>
+                        <div class="category-details">
+                            <strong>{{.Category}}</strong>
+                            <small>{{.Count}} transaction{{if ne .Count 1}}s{{end}}</small>
+                        </div>
+                    </div>
+                    <div class="category-amount">
+                        <strong>€{{printf "%.2f" .Total}}</strong>
+                        <small class="percentage">{{printf "%.1f" .Percentage}}%</small>
+                    </div>
+                </div>
+                <div class="category-bar">
+                    <div class="category-bar-fill" style="width: {{printf "%.1f" .Percentage}}%; background-color: {{.CategoryStyle.Color}}"></div>
+                </div>
+                {{end}}
+            </div>
+        </section>
+        {{end}}
+
+        <!-- Expenses List -->
+        {{if .Expenses}}
+        <section class="stats-expenses">
+            <h3>All Transactions</h3>
+            <div class="expense-list">
+                {{range .Expenses}}
+                <article class="expense-item" 
+                         hx-get="/expenses/{{.ID}}/edit" 
+                         hx-target="#content" 
+                         hx-push-url="true">
+                    <div class="expense-info">
+                        <div class="cat-icon" style="background-color: {{.CategoryStyle.Color}}">{{.CategoryStyle.Icon}}</div>
+                        <div class="expense-details">
+                            <strong>{{.Description}}</strong>
+                            <small>{{.Time}}</small>
+                        </div>
+                    </div>
+                    <span class="expense-amount{{if .IsIncome}} income{{end}}">
+                        {{if .IsIncome}}+{{else}}-{{end}}€{{printf "%.2f" .Amount}}
+                    </span>
+                </article>
+                {{end}}
+            </div>
+        </section>
+        {{else}}
+        <section class="empty-state">
+            <p>No expenses recorded for this month</p>
+        </section>
+        {{end}}
+    </section>
+
+    <nav class="fab-bar">
+        <button>📊</button>
+        <button class="fab-add" hx-get="/expenses/create" hx-target="#content" hx-push-url="true">+</button>
+        <button>⚙️</button>
+    </nav>
+</div>
+{{end}}

@@ -119,6 +119,193 @@ func (s *ExpenseTestSuite) TestListExpensesCurrentMonth() {
 	}
 }
 
+func (s *ExpenseTestSuite) TestGetExpensesByMonth() {
+	// Create expenses in different months
+	jan2026 := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	feb2026 := time.Date(2026, 2, 15, 12, 0, 0, 0, time.UTC)
+	dec2025 := time.Date(2025, 12, 15, 12, 0, 0, 0, time.UTC)
+
+	testExpenses := []struct {
+		amount      float64
+		description string
+		category    string
+		date        time.Time
+	}{
+		{100.00, "January Expense 1", "groceries", jan2026},
+		{150.00, "January Expense 2", "transport", jan2026.Add(24 * time.Hour)},
+		{200.00, "February Expense", "eating out", feb2026},
+		{300.00, "December Expense", "utilities", dec2025},
+	}
+
+	for _, exp := range testExpenses {
+		err := s.db.CreateExpense(exp.amount, exp.description, exp.category, exp.date)
+		s.Require().NoError(err, "failed to create expense: %s", exp.description)
+	}
+
+	// Test getting January 2026 expenses
+	janExpenses, err := s.db.GetExpensesByMonth(2026, 1)
+	s.Require().NoError(err)
+	s.Len(janExpenses, 2, "expected 2 expenses in January 2026")
+
+	// Verify expenses are ordered by date DESC
+	if s.Len(janExpenses, 2) {
+		s.Equal("January Expense 2", janExpenses[0].Description)
+		s.InDelta(150.00, janExpenses[0].Amount, 0.001)
+		s.Equal("January Expense 1", janExpenses[1].Description)
+		s.InDelta(100.00, janExpenses[1].Amount, 0.001)
+	}
+
+	// Test getting February 2026 expenses
+	febExpenses, err := s.db.GetExpensesByMonth(2026, 2)
+	s.Require().NoError(err)
+	s.Len(febExpenses, 1, "expected 1 expense in February 2026")
+	if s.Len(febExpenses, 1) {
+		s.Equal("February Expense", febExpenses[0].Description)
+		s.InDelta(200.00, febExpenses[0].Amount, 0.001)
+	}
+
+	// Test getting December 2025 expenses
+	decExpenses, err := s.db.GetExpensesByMonth(2025, 12)
+	s.Require().NoError(err)
+	s.Len(decExpenses, 1, "expected 1 expense in December 2025")
+	if s.Len(decExpenses, 1) {
+		s.Equal("December Expense", decExpenses[0].Description)
+		s.InDelta(300.00, decExpenses[0].Amount, 0.001)
+	}
+
+	// Test getting a month with no expenses
+	novExpenses, err := s.db.GetExpensesByMonth(2025, 11)
+	s.Require().NoError(err)
+	s.Empty(novExpenses, "expected 0 expenses in November 2025")
+}
+
+func (s *ExpenseTestSuite) TestGetCategoryTotalsByMonth() {
+	// Create expenses in different months and categories
+	jan2026 := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	testExpenses := []struct {
+		amount      float64
+		description string
+		category    string
+		date        time.Time
+	}{
+		{100.00, "Groceries 1", "groceries", jan2026},
+		{150.00, "Groceries 2", "groceries", jan2026.Add(time.Hour)},
+		{200.00, "Bus", "transport", jan2026.Add(2 * time.Hour)},
+		{50.00, "Taxi", "transport", jan2026.Add(3 * time.Hour)},
+		{75.00, "Restaurant", "eating out", jan2026.Add(4 * time.Hour)},
+		// February expenses (should not be included)
+		{300.00, "Feb Groceries", "groceries", time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)},
+	}
+
+	for _, exp := range testExpenses {
+		err := s.db.CreateExpense(exp.amount, exp.description, exp.category, exp.date)
+		s.Require().NoError(err, "failed to create expense: %s", exp.description)
+	}
+
+	// Test getting category totals for January 2026
+	totals, err := s.db.GetCategoryTotalsByMonth(2026, 1)
+	s.Require().NoError(err)
+	s.Len(totals, 3, "expected 3 categories in January 2026")
+
+	// Build a map for easier verification (since groceries and transport have same total)
+	categoryMap := make(map[string]CategoryTotal)
+	for _, ct := range totals {
+		categoryMap[ct.Category] = ct
+	}
+
+	// Verify groceries: 100 + 150 = 250
+	s.Contains(categoryMap, "groceries")
+	s.InDelta(250.00, categoryMap["groceries"].Total, 0.001)
+	s.Equal(2, categoryMap["groceries"].Count)
+
+	// Verify transport: 200 + 50 = 250
+	s.Contains(categoryMap, "transport")
+	s.InDelta(250.00, categoryMap["transport"].Total, 0.001)
+	s.Equal(2, categoryMap["transport"].Count)
+
+	// Verify eating out: 75 (should be last since it has lowest total)
+	s.Contains(categoryMap, "eating out")
+	s.InDelta(75.00, categoryMap["eating out"].Total, 0.001)
+	s.Equal(1, categoryMap["eating out"].Count)
+
+	// The last item should be eating out (lowest total)
+	s.Equal("eating out", totals[2].Category)
+
+	// Test getting category totals for February 2026
+	febTotals, err := s.db.GetCategoryTotalsByMonth(2026, 2)
+	s.Require().NoError(err)
+	s.Len(febTotals, 1, "expected 1 category in February 2026")
+	if s.Len(febTotals, 1) {
+		s.Equal("groceries", febTotals[0].Category)
+		s.InDelta(300.00, febTotals[0].Total, 0.001)
+		s.Equal(1, febTotals[0].Count)
+	}
+
+	// Test getting category totals for a month with no expenses
+	novTotals, err := s.db.GetCategoryTotalsByMonth(2025, 11)
+	s.Require().NoError(err)
+	s.Empty(novTotals, "expected 0 categories in November 2025")
+}
+
+func (s *ExpenseTestSuite) TestGetCategoryTotalsByMonth_SingleCategory() {
+	// Test when all expenses are in one category
+	jan2026 := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	expenses := []struct {
+		amount float64
+		desc   string
+	}{
+		{10.00, "Coffee"},
+		{20.00, "Lunch"},
+		{30.00, "Dinner"},
+	}
+
+	for _, exp := range expenses {
+		err := s.db.CreateExpense(exp.amount, exp.desc, "eating out", jan2026.Add(time.Hour))
+		jan2026 = jan2026.Add(time.Hour)
+		s.Require().NoError(err)
+	}
+
+	totals, err := s.db.GetCategoryTotalsByMonth(2026, 1)
+	s.Require().NoError(err)
+	s.Len(totals, 1, "expected 1 category")
+	if s.Len(totals, 1) {
+		s.Equal("eating out", totals[0].Category)
+		s.InDelta(60.00, totals[0].Total, 0.001)
+		s.Equal(3, totals[0].Count)
+	}
+}
+
+func (s *ExpenseTestSuite) TestGetExpensesByMonth_EdgeCases() {
+	// Test month boundaries
+	// Last day of January
+	jan31 := time.Date(2026, 1, 31, 23, 59, 59, 0, time.UTC)
+	// First day of February
+	feb1 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+
+	err := s.db.CreateExpense(100.00, "End of January", "groceries", jan31)
+	s.Require().NoError(err)
+	err = s.db.CreateExpense(200.00, "Start of February", "groceries", feb1)
+	s.Require().NoError(err)
+
+	// Get January expenses
+	janExpenses, err := s.db.GetExpensesByMonth(2026, 1)
+	s.Require().NoError(err)
+	s.Len(janExpenses, 1, "expected 1 expense in January")
+	if s.Len(janExpenses, 1) {
+		s.Equal("End of January", janExpenses[0].Description)
+	}
+
+	// Get February expenses
+	febExpenses, err := s.db.GetExpensesByMonth(2026, 2)
+	s.Require().NoError(err)
+	s.Len(febExpenses, 1, "expected 1 expense in February")
+	if s.Len(febExpenses, 1) {
+		s.Equal("Start of February", febExpenses[0].Description)
+	}
+}
+
 // Test suite runner
 func TestExpenseSuite(t *testing.T) {
 	suite.Run(t, new(ExpenseTestSuite))
