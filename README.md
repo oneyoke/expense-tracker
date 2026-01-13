@@ -6,17 +6,20 @@ A simple, mobile-first expense tracking web application. Built with **Go** and *
 
 - 📱 **Mobile-First Design**: Optimized for mobile usage with a responsive layout.
 - ⚡ **Fast & Lightweight**: Server-side rendering with Go and HTMX for smooth interactions.
-- 💰 **Expense Tracking**: Quick expense entry with a custom keypad.
-- 📊 **Overview**: Daily grouping and monthly summaries.
-- 🎨 **Modern UI**: Clean, mobile-first design with custom CSS.
+- 💰 **Quick Entry**: Specialized keypad interface for rapid expense recording.
+- 📋 **Expense History**: Chronological feed of expenses grouped by day.
+- 📊 **Statistics**: Monthly spending breakdown by category with percentages and totals.
+- 🎨 **Modern UI**: Clean, minimalistic interface using custom CSS.
 
 ## Project Structure
 
 ```
 ├── cmd/
+│   ├── adduser/          # CLI tool for user management
 │   └── server/           # Application entry point
 ├── e2e/                  # End-to-end tests
 ├── internal/
+│   ├── auth/             # Authentication logic
 │   ├── handlers/         # HTTP handlers and view logic
 │   ├── models/           # Data models
 │   └── storage/          # Database layer (SQLite)
@@ -64,10 +67,21 @@ The application can be configured via environment variables:
 |----------|-------------|---------|
 | `PORT` | The port to listen on | `8080` |
 | `DB_PATH` | Path to the SQLite database file | `expenses.db` |
+| `SECURE_COOKIE` | Set to `true` to use secure cookies (HTTPS only) | `false` |
+| `ADMIN_USER` | Username for the initial admin user (created on first run) | `admin` |
+| `ADMIN_PASSWORD` | Password for the initial admin user. If not set, a random one is generated and printed to logs. | Random |
 
 ## User Management
 
-To add a new user, use the `adduser` CLI tool:
+### Initial Setup (Bootstrapping)
+
+On the first run, if no users exist in the database, the application will attempt to create an initial admin user.
+- If `ADMIN_USER` and `ADMIN_PASSWORD` environment variables are set, it uses those credentials.
+- If not set, it creates a user `admin` with a **randomly generated password**, which is printed to the server logs.
+
+### CLI Tool
+
+To add a new user manually, use the `adduser` CLI tool:
 
 ```bash
 go run ./cmd/adduser -user <username> -password <password>
