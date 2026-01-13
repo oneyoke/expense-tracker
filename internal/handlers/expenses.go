@@ -35,6 +35,7 @@ func (h *Handlers) ListExpenses(w http.ResponseWriter, r *http.Request) {
 			Description:   e.Description,
 			Category:      e.Category,
 			Time:          e.Date.Format("15:04"),
+			DateTime:      e.Date.Format("2006-01-02T15:04:05"),
 			CategoryStyle: getCategoryStyle(e.Category),
 		})
 	}

@@ -19,9 +19,12 @@
             </div>
             {{range .Items}}
             <article class="expense-item" 
-                     hx-get="/expenses/{{.ID}}/edit" 
-                     hx-target="#content" 
-                     hx-push-url="true">
+                     data-id="{{.ID}}"
+                     data-amount="{{.Amount}}"
+                     data-description="{{.Description}}"
+                     data-category="{{.Category}}"
+                     data-datetime="{{.DateTime}}"
+                     onclick="openEditModal(this.dataset.id, this.dataset.amount, this.dataset.description, this.dataset.category, this.dataset.datetime)">
                 <div class="expense-info">
                     <div class="cat-icon" style="background-color: {{.CategoryStyle.Color}}">{{.CategoryStyle.Icon}}</div>
                     <div class="expense-details">
@@ -39,9 +42,9 @@
     </section>
 
     <nav class="fab-bar">
+        <button class="active">📋</button>
+        <button class="fab-add" onclick="openCreateModal()">+</button>
         <button hx-get="/statistics" hx-target="#content" hx-push-url="true">📊</button>
-        <button class="fab-add" hx-get="/expenses/create" hx-target="#content" hx-push-url="true">+</button>
-        <button>⚙️</button>
     </nav>
 </div>
 {{end}}

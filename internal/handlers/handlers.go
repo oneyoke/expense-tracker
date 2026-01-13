@@ -64,6 +64,7 @@ type ExpenseItem struct {
 	Description   string
 	Category      string
 	Time          string
+	DateTime      string // Full datetime for edit modal (2006-01-02T15:04:05)
 	CategoryStyle CategoryStyle
 	IsIncome      bool
 }

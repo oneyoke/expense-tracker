@@ -153,7 +153,7 @@ func (s *ExpenseHandlerTestSuite) TestStatistics_CurrentMonth() {
 	s.Equal(http.StatusOK, resp.StatusCode)
 
 	body := w.Body.String()
-	s.Contains(body, "Statistics", "should contain Statistics heading")
+	s.Contains(body, "stats-screen", "should contain stats-screen class")
 	s.Contains(body, "Total spent", "should contain total spent label")
 }
 

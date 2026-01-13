@@ -1,10 +1,10 @@
 {{define "content"}}
 <div class="screen stats-screen">
-    <header class="header">
-        <button hx-get="/expenses" hx-target="#content" hx-push-url="true">←</button>
-        <h1>Statistics</h1>
-        <div></div>
-    </header>
+<!--    <header class="header">-->
+<!--        <div></div>-->
+<!--        <h1>Statistics</h1>-->
+<!--        <div></div>-->
+<!--    </header>-->
 
     <section class="stats-content">
         <!-- Month Selector -->
@@ -64,9 +64,12 @@
             <div class="expense-list">
                 {{range .Expenses}}
                 <article class="expense-item" 
-                         hx-get="/expenses/{{.ID}}/edit" 
-                         hx-target="#content" 
-                         hx-push-url="true">
+                         data-id="{{.ID}}"
+                         data-amount="{{.Amount}}"
+                         data-description="{{.Description}}"
+                         data-category="{{.Category}}"
+                         data-datetime="{{.DateTime}}"
+                         onclick="openEditModal(this.dataset.id, this.dataset.amount, this.dataset.description, this.dataset.category, this.dataset.datetime)">
                     <div class="expense-info">
                         <div class="cat-icon" style="background-color: {{.CategoryStyle.Color}}">{{.CategoryStyle.Icon}}</div>
                         <div class="expense-details">
@@ -89,9 +92,9 @@
     </section>
 
     <nav class="fab-bar">
-        <button>📊</button>
-        <button class="fab-add" hx-get="/expenses/create" hx-target="#content" hx-push-url="true">+</button>
-        <button>⚙️</button>
+        <button hx-get="/expenses" hx-target="#content" hx-push-url="true">📋</button>
+        <button class="fab-add" onclick="openCreateModal()">+</button>
+        <button class="active">📊</button>
     </nav>
 </div>
 {{end}}
