@@ -1,34 +1,105 @@
 {{define "content"}}
 <div class="screen stats-screen">
-<!--    <header class="header">-->
-<!--        <div></div>-->
-<!--        <h1>Statistics</h1>-->
-<!--        <div></div>-->
-<!--    </header>-->
-
     <section class="stats-content">
-        <!-- Month Selector -->
-        <div class="month-selector">
-            <button class="month-nav" 
-                    hx-get="/statistics?year={{.PrevYear}}&month={{.PrevMonth}}" 
+        <!-- Header with View Selector -->
+        <div class="insights-header">
+            <h1 class="insights-title">Insights</h1>
+            <div class="view-selector">
+                <select id="view-mode-select" onchange="changeViewMode(this.value, {{.Year}}, {{.Month}})">
+                    <option value="month" {{if eq .ViewMode "month"}}selected{{end}}>month</option>
+                    <option value="year" {{if eq .ViewMode "year"}}selected{{end}}>year</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Period Navigation -->
+        <div class="period-selector">
+            {{if eq .ViewMode "year"}}
+            <button class="period-nav" 
+                    hx-get="/statistics?view=year&year={{.PrevYear}}" 
                     hx-target="#content" 
                     hx-push-url="true">‹</button>
-            <h2 class="month-title">{{.MonthName}} {{.Year}}</h2>
-            <button class="month-nav" 
-                    {{if not .IsCurrentMonth}}
-                    hx-get="/statistics?year={{.NextYear}}&month={{.NextMonth}}" 
+            <h2 class="period-title">{{.Year}}</h2>
+            <button class="period-nav" 
+                    {{if not .IsCurrentPeriod}}
+                    hx-get="/statistics?view=year&year={{.NextYear}}" 
                     hx-target="#content" 
                     hx-push-url="true"
                     {{else}}
                     disabled style="opacity: 0.3; cursor: not-allowed;"
                     {{end}}>›</button>
+            {{else}}
+            <button class="period-nav" 
+                    hx-get="/statistics?view=month&year={{.PrevYear}}&month={{.PrevMonth}}" 
+                    hx-target="#content" 
+                    hx-push-url="true">‹</button>
+            <h2 class="period-title">{{.MonthName}} {{.Year}}</h2>
+            <button class="period-nav" 
+                    {{if not .IsCurrentPeriod}}
+                    hx-get="/statistics?view=month&year={{.NextYear}}&month={{.NextMonth}}" 
+                    hx-target="#content" 
+                    hx-push-url="true"
+                    {{else}}
+                    disabled style="opacity: 0.3; cursor: not-allowed;"
+                    {{end}}>›</button>
+            {{end}}
         </div>
 
-        <!-- Total Summary -->
-        <section class="stats-summary">
-            <small>Total spent</small>
-            <div class="total"><span class="currency">€</span>{{printf "%.2f" .Total}}</div>
+        <!-- Enhanced Stats Summary -->
+        <section class="stats-summary-enhanced">
+            <div class="stat-card">
+                <small class="stat-label">{{.Year}}</small>
+                <div class="stat-main">
+                    <span class="stat-amount"><span class="currency">-€</span>{{printf "%.0f" .Total}}</span>
+                    {{if .HasChange}}
+                    <span class="percentage-badge {{if .IsIncrease}}increase{{else}}decrease{{end}}">
+                        {{if .IsIncrease}}+{{else}}-{{end}}{{printf "%.0f" .PercentageChange}}%
+                    </span>
+                    {{end}}
+                </div>
+            </div>
+            <div class="stat-card">
+                <small class="stat-label">{{.AverageLabel}}</small>
+                <div class="stat-value"><span class="currency">€</span>{{printf "%.0f" .AverageSpending}}</div>
+            </div>
         </section>
+
+        <!-- Bar Chart -->
+        {{if .ChartData}}
+        <section class="chart-section">
+            <div class="chart-container" data-max-value="{{.MaxChartValue}}" data-average="{{.AverageSpending}}">
+                <!-- Chart bars -->
+                <div class="chart-bars">
+                    {{range $index, $point := .ChartData}}
+                    <div class="chart-bar-wrapper" title="{{if ne $point.Label ""}}{{$point.Label}}: {{end}}€{{printf "%.2f" $point.Value}}">
+                        <div class="chart-bar" data-value="{{$point.Value}}"></div>
+                    </div>
+                    {{end}}
+
+                    <!-- Average line -->
+                    {{if and (gt .AverageSpending 0.0) (gt .MaxChartValue 0.0)}}
+                    <div class="average-line">
+                        <span class="average-label">{{printf "%.0f" .AverageSpending}}</span>
+                    </div>
+                    {{end}}
+                </div>
+                
+<!--                &lt;!&ndash; Average line &ndash;&gt;-->
+<!--                {{if and (gt .AverageSpending 0.0) (gt .MaxChartValue 0.0)}}-->
+<!--                <div class="average-line">-->
+<!--                    <span class="average-label">{{printf "%.0f" .AverageSpending}}</span>-->
+<!--                </div>-->
+<!--                {{end}}-->
+
+                <!-- Chart Labels -->
+                <div class="chart-labels">
+                    {{range .ChartData}}
+                    <span class="chart-label">{{.Label}}</span>
+                    {{end}}
+                </div>
+            </div>
+        </section>
+        {{end}}
 
         <!-- Category Breakdown -->
         {{if .Categories}}
@@ -92,9 +163,48 @@
     </section>
 
     <nav class="fab-bar">
-        <button hx-get="/expenses" hx-target="#content" hx-push-url="true">📋</button>
-        <button class="fab-add" onclick="openCreateModal()">+</button>
-        <button class="active">📊</button>
+        <button hx-get="/expenses" hx-target="#content" hx-push-url="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list-icon lucide-list"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg></button>
+        <button class="fab-add" onclick="openCreateModal()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus-icon lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+        <button class="active"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chart-no-axes-combined-icon lucide-chart-no-axes-combined"><path d="M12 16v5"/><path d="M16 14v7"/><path d="M20 10v11"/><path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"/><path d="M4 18v3"/><path d="M8 14v7"/></svg></button>
     </nav>
 </div>
+
+<script>
+function changeViewMode(view, year, month) {
+    let url = '/statistics?view=' + view;
+    if (view === 'year') {
+        url += '&year=' + year;
+    } else {
+        url += '&year=' + year + '&month=' + month;
+    }
+    htmx.ajax('GET', url, {target: '#content', swap: 'innerHTML', push: true});
+}
+
+// Initialize chart bar heights
+(function() {
+    const container = document.querySelector('.chart-container');
+    if (!container) return;
+    
+    const maxValue = parseFloat(container.dataset.maxValue) || 0;
+    const average = parseFloat(container.dataset.average) || 0;
+    
+    if (maxValue <= 0) return;
+    
+    // Set bar heights
+    document.querySelectorAll('.chart-bar').forEach(bar => {
+        const value = parseFloat(bar.dataset.value) || 0;
+        const heightPercent = (value / maxValue) * 100;
+        bar.style.height = heightPercent + '%';
+    });
+    
+    // Set average line position
+    if (average > 0) {
+        const avgLine = document.querySelector('.average-line');
+        if (avgLine) {
+            const avgPercent = (average / maxValue) * 100;
+            avgLine.style.bottom = avgPercent + '%';
+        }
+    }
+})();
+</script>
 {{end}}

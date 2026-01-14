@@ -154,7 +154,7 @@ func (s *ExpenseHandlerTestSuite) TestStatistics_CurrentMonth() {
 
 	body := w.Body.String()
 	s.Contains(body, "stats-screen", "should contain stats-screen class")
-	s.Contains(body, "Total spent", "should contain total spent label")
+	s.Contains(body, "stat-label", "should contain stat labels")
 }
 
 func (s *ExpenseHandlerTestSuite) TestStatistics_WithExpenses() {
@@ -194,7 +194,7 @@ func (s *ExpenseHandlerTestSuite) TestStatistics_WithExpenses() {
 	body := w.Body.String()
 	s.Contains(body, "January", "should show month name")
 	s.Contains(body, "2026", "should show year")
-	s.Contains(body, "250.00", "should show total (100+50+75+25=250)")
+	s.Contains(body, ">250<", "should show total (100+50+75+25=250)")
 	s.Contains(body, "groceries", "should show groceries category")
 	s.Contains(body, "transport", "should show transport category")
 	s.Contains(body, "eating out", "should show eating out category")

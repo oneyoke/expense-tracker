@@ -142,3 +142,158 @@ func (db *DB) GetCategoryTotalsByMonth(year, month int) ([]CategoryTotal, error)
 
 	return totals, rows.Err()
 }
+
+// MonthlyTotal represents spending total for a month.
+type MonthlyTotal struct {
+	Month int
+	Total float64
+}
+
+// GetMonthlyTotalsForYear retrieves spending totals by month for a specific year.
+func (db *DB) GetMonthlyTotalsForYear(year int) ([]MonthlyTotal, error) {
+	startOfYear := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	endOfYear := startOfYear.AddDate(1, 0, 0)
+
+	// Use SUBSTR to extract month from ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)
+	rows, err := db.conn.Query(
+		`SELECT CAST(SUBSTR(date, 6, 2) AS INTEGER) as month, SUM(amount) as total 
+		 FROM expenses 
+		 WHERE date >= ? AND date < ? 
+		 GROUP BY SUBSTR(date, 6, 2) 
+		 ORDER BY month`,
+		startOfYear, endOfYear,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var totals []MonthlyTotal
+	for rows.Next() {
+		var mt MonthlyTotal
+		if err := rows.Scan(&mt.Month, &mt.Total); err != nil {
+			return nil, err
+		}
+		totals = append(totals, mt)
+	}
+
+	return totals, rows.Err()
+}
+
+// DailyTotal represents spending total for a day.
+type DailyTotal struct {
+	Day   int
+	Total float64
+}
+
+// GetDailyTotalsForMonth retrieves spending totals by day for a specific month.
+func (db *DB) GetDailyTotalsForMonth(year, month int) ([]DailyTotal, error) {
+	startOfMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+
+	// Use SUBSTR to extract day from ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)
+	rows, err := db.conn.Query(
+		`SELECT CAST(SUBSTR(date, 9, 2) AS INTEGER) as day, SUM(amount) as total 
+		 FROM expenses 
+		 WHERE date >= ? AND date < ? 
+		 GROUP BY SUBSTR(date, 9, 2) 
+		 ORDER BY day`,
+		startOfMonth, endOfMonth,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var totals []DailyTotal
+	for rows.Next() {
+		var dt DailyTotal
+		if err := rows.Scan(&dt.Day, &dt.Total); err != nil {
+			return nil, err
+		}
+		totals = append(totals, dt)
+	}
+
+	return totals, rows.Err()
+}
+
+// GetTotalForPeriod retrieves the total spending for a period.
+// If month is 0, it returns the total for the entire year.
+// Otherwise, it returns the total for the specific month.
+func (db *DB) GetTotalForPeriod(year, month int) (float64, error) {
+	var startDate, endDate time.Time
+	
+	if month == 0 {
+		// Year total
+		startDate = time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+		endDate = startDate.AddDate(1, 0, 0)
+	} else {
+		// Month total
+		startDate = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+		endDate = startDate.AddDate(0, 1, 0)
+	}
+
+	var total float64
+	err := db.conn.QueryRow(
+		`SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE date >= ? AND date < ?`,
+		startDate, endDate,
+	).Scan(&total)
+
+	return total, err
+}
+
+// GetExpensesByYear retrieves all expenses for a specific year.
+func (db *DB) GetExpensesByYear(year int) ([]models.Expense, error) {
+	startOfYear := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	endOfYear := startOfYear.AddDate(1, 0, 0)
+
+	rows, err := db.conn.Query(
+		"SELECT id, amount, description, category, date FROM expenses WHERE date >= ? AND date < ? ORDER BY date DESC",
+		startOfYear, endOfYear,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var expenses []models.Expense
+	for rows.Next() {
+		var e models.Expense
+		if err := rows.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date); err != nil {
+			return nil, err
+		}
+		expenses = append(expenses, e)
+	}
+
+	return expenses, rows.Err()
+}
+
+// GetCategoryTotalsByYear retrieves spending totals by category for a specific year.
+func (db *DB) GetCategoryTotalsByYear(year int) ([]CategoryTotal, error) {
+	startOfYear := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	endOfYear := startOfYear.AddDate(1, 0, 0)
+
+	rows, err := db.conn.Query(
+		`SELECT category, SUM(amount) as total, COUNT(*) as count 
+		 FROM expenses 
+		 WHERE date >= ? AND date < ? 
+		 GROUP BY category 
+		 ORDER BY total DESC`,
+		startOfYear, endOfYear,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var totals []CategoryTotal
+	for rows.Next() {
+		var ct CategoryTotal
+		if err := rows.Scan(&ct.Category, &ct.Total, &ct.Count); err != nil {
+			return nil, err
+		}
+		totals = append(totals, ct)
+	}
+
+	return totals, rows.Err()
+}
