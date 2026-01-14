@@ -67,6 +67,7 @@ type ExpenseItem struct {
 	DateTime      string // Full datetime for edit modal (2006-01-02T15:04:05)
 	CategoryStyle CategoryStyle
 	IsIncome      bool
+	IsOtherUser   bool // True if this expense was created by a different user
 }
 
 // ExpenseGroup groups expenses by date.

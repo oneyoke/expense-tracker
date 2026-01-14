@@ -24,6 +24,7 @@
                      data-description="{{.Description}}"
                      data-category="{{.Category}}"
                      data-datetime="{{.DateTime}}"
+                     {{if .IsOtherUser}}style="background-color: floralwhite;"{{end}}
                      onclick="openEditModal(this.dataset.id, this.dataset.amount, this.dataset.description, this.dataset.category, this.dataset.datetime)">
                 <div class="expense-info">
                     <div class="cat-icon" style="background-color: {{.CategoryStyle.Color}}">{{.CategoryStyle.Icon}}</div>

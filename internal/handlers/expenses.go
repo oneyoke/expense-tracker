@@ -10,6 +10,12 @@ import (
 
 // ListExpenses renders the list of expenses.
 func (h *Handlers) ListExpenses(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(UserContextKey).(*models.User)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	expenses, err := h.db.ListExpenses()
 	if err != nil {
 		log.Printf("ListExpenses error: %v", err)
@@ -29,6 +35,9 @@ func (h *Handlers) ListExpenses(w http.ResponseWriter, r *http.Request) {
 		group.Total += e.Amount
 		totalSpent += e.Amount
 
+		// Check if this expense was created by a different user
+		isOtherUser := e.UserID != nil && *e.UserID != user.ID
+
 		group.Items = append(group.Items, ExpenseItem{
 			ID:            e.ID,
 			Amount:        e.Amount,
@@ -37,6 +46,7 @@ func (h *Handlers) ListExpenses(w http.ResponseWriter, r *http.Request) {
 			Time:          e.Date.Format("15:04"),
 			DateTime:      e.Date.Format("2006-01-02T15:04:05"),
 			CategoryStyle: getCategoryStyle(e.Category),
+			IsOtherUser:   isOtherUser,
 		})
 	}
 

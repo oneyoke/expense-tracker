@@ -50,6 +50,7 @@ func (s *ExpenseHandlerTestSuite) TestListExpenses() {
 	h := NewHandlers(s.db, s.templateDir, false)
 
 	req := httptest.NewRequest("GET", "/expenses", http.NoBody)
+	req = s.addUserContext(req)
 	w := httptest.NewRecorder()
 
 	h.ListExpenses(w, req)
@@ -60,6 +61,78 @@ func (s *ExpenseHandlerTestSuite) TestListExpenses() {
 	// Simple content check - look for "Spent this month" which is in list.html
 	body := w.Body.String()
 	s.Contains(body, "Spent this month")
+}
+
+func (s *ExpenseHandlerTestSuite) TestListExpenses_Unauthorized() {
+	h := NewHandlers(s.db, s.templateDir, false)
+
+	// Request without user context should return 401
+	req := httptest.NewRequest("GET", "/expenses", http.NoBody)
+	w := httptest.NewRecorder()
+
+	h.ListExpenses(w, req)
+
+	resp := w.Result()
+	s.Equal(http.StatusUnauthorized, resp.StatusCode)
+}
+
+func (s *ExpenseHandlerTestSuite) TestListExpenses_HighlightOtherUsersExpenses() {
+	h := NewHandlers(s.db, s.templateDir, false)
+
+	// Create user 1 first (the current user)
+	user1, err := s.db.CreateUser("testuser", "password123")
+	s.Require().NoError(err)
+
+	// Create user 2 (the other user)
+	user2, err := s.db.CreateUser("otheruser", "password456")
+	s.Require().NoError(err)
+
+	// Create expenses for both users
+	date := parseTestDate("2026-01-15T12:00:00")
+
+	// Expense by user 1 (current user in context)
+	err = s.db.CreateExpense(50.00, "My Expense", "groceries", date, user1.ID)
+	s.Require().NoError(err)
+
+	// Expense by user 2 (other user)
+	err = s.db.CreateExpense(30.00, "Other User Expense", "transport", date.Add(time.Hour), user2.ID)
+	s.Require().NoError(err)
+
+	// Request as user 1
+	req := httptest.NewRequest("GET", "/expenses", http.NoBody)
+	ctx := context.WithValue(req.Context(), UserContextKey, user1) // Use the actual user1 from DB
+	req = req.WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	h.ListExpenses(w, req)
+
+	resp := w.Result()
+	s.Equal(http.StatusOK, resp.StatusCode)
+
+	body := w.Body.String()
+
+	// Should contain both expenses
+	s.Contains(body, "My Expense")
+	s.Contains(body, "Other User Expense")
+
+	// Should highlight the other user's expense with floralwhite background
+	s.Contains(body, "floralwhite", "other user's expense should have floralwhite background")
+
+	// Verify the pattern: article tag with floralwhite style attribute
+	s.Contains(body, `style="background-color: floralwhite;"`, "should have floralwhite background style")
+
+	// Verify that floralwhite appears in context with the other user's expense
+	// Find the article tag that contains "Other User Expense"
+	articleStart := strings.Index(body, `data-description="Other User Expense"`)
+	s.Positive(articleStart, "should find Other User Expense in HTML")
+
+	// Look backwards from that point to find the start of the article tag
+	articleTagStart := strings.LastIndex(body[:articleStart], `<article class="expense-item"`)
+	s.Positive(articleTagStart, "should find article tag start")
+
+	// Check that floralwhite appears within this article element
+	articleSection := body[articleTagStart : articleStart+300]
+	s.Contains(articleSection, "floralwhite", "floralwhite should be in the Other User's expense article tag")
 }
 
 func (s *ExpenseHandlerTestSuite) TestCreateExpense() {
@@ -357,6 +430,45 @@ func (s *ExpenseHandlerTestSuite) TestDeleteExpense_NonExistent() {
 	// Should still return OK (no-op for non-existent)
 	resp := w.Result()
 	s.Equal(http.StatusOK, resp.StatusCode)
+}
+
+func (s *ExpenseHandlerTestSuite) TestIsOtherUserLogic() {
+	// Create two users
+	user1, err := s.db.CreateUser("user1", "pass1")
+	s.Require().NoError(err)
+
+	user2, err := s.db.CreateUser("user2", "pass2")
+	s.Require().NoError(err)
+
+	// Create expenses for both users
+	date := parseTestDate("2026-01-15T12:00:00")
+	err = s.db.CreateExpense(50.00, "User1 Expense", "groceries", date, user1.ID)
+	s.Require().NoError(err)
+
+	err = s.db.CreateExpense(30.00, "User2 Expense", "transport", date.Add(time.Hour), user2.ID)
+	s.Require().NoError(err)
+
+	// Get all expenses
+	expenses, err := s.db.ListExpenses()
+	s.Require().NoError(err)
+	s.Require().Len(expenses, 2)
+
+	// Test the IsOtherUser logic
+	for _, e := range expenses {
+		if e.Description == "User1 Expense" {
+			s.Equal(user1.ID, *e.UserID, "User1 expense should belong to user1")
+			isOtherUser := e.UserID != nil && *e.UserID != user1.ID
+			s.False(isOtherUser, "From user1's perspective, their own expense should not be IsOtherUser")
+
+			isOtherUserForUser2 := e.UserID != nil && *e.UserID != user2.ID
+			s.True(isOtherUserForUser2, "From user2's perspective, user1's expense should be IsOtherUser")
+		}
+		if e.Description == "User2 Expense" {
+			s.Equal(user2.ID, *e.UserID, "User2 expense should belong to user2")
+			isOtherUser := e.UserID != nil && *e.UserID != user1.ID
+			s.True(isOtherUser, "From user1's perspective, user2's expense should be IsOtherUser")
+		}
+	}
 }
 
 // Helper function to parse test dates

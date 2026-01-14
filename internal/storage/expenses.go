@@ -21,12 +21,12 @@ func (db *DB) CreateExpense(amount float64, description, category string, date t
 // GetExpense retrieves a single expense by ID.
 func (db *DB) GetExpense(id int64) (*models.Expense, error) {
 	row := db.conn.QueryRow(
-		"SELECT id, amount, description, category, date FROM expenses WHERE id = ?",
+		"SELECT id, amount, description, category, date, user_id FROM expenses WHERE id = ?",
 		id,
 	)
 
 	var e models.Expense
-	if err := row.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date); err != nil {
+	if err := row.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date, &e.UserID); err != nil {
 		return nil, err
 	}
 	return &e, nil
@@ -54,7 +54,7 @@ func (db *DB) ListExpenses() ([]models.Expense, error) {
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
 	rows, err := db.conn.Query(
-		"SELECT id, amount, description, category, date FROM expenses WHERE date >= ? ORDER BY date DESC",
+		"SELECT id, amount, description, category, date, user_id FROM expenses WHERE date >= ? ORDER BY date DESC",
 		startOfMonth,
 	)
 	if err != nil {
@@ -65,7 +65,7 @@ func (db *DB) ListExpenses() ([]models.Expense, error) {
 	var expenses []models.Expense
 	for rows.Next() {
 		var e models.Expense
-		if err := rows.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date); err != nil {
+		if err := rows.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date, &e.UserID); err != nil {
 			return nil, err
 		}
 		expenses = append(expenses, e)
@@ -86,7 +86,7 @@ func (db *DB) GetExpensesByMonth(year, month int) ([]models.Expense, error) {
 	endOfMonth := startOfMonth.AddDate(0, 1, 0)
 
 	rows, err := db.conn.Query(
-		"SELECT id, amount, description, category, date FROM expenses WHERE date >= ? AND date < ? ORDER BY date DESC",
+		"SELECT id, amount, description, category, date, user_id FROM expenses WHERE date >= ? AND date < ? ORDER BY date DESC",
 		startOfMonth, endOfMonth,
 	)
 	if err != nil {
@@ -97,7 +97,7 @@ func (db *DB) GetExpensesByMonth(year, month int) ([]models.Expense, error) {
 	var expenses []models.Expense
 	for rows.Next() {
 		var e models.Expense
-		if err := rows.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date); err != nil {
+		if err := rows.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date, &e.UserID); err != nil {
 			return nil, err
 		}
 		expenses = append(expenses, e)
@@ -222,7 +222,7 @@ func (db *DB) GetDailyTotalsForMonth(year, month int) ([]DailyTotal, error) {
 // Otherwise, it returns the total for the specific month.
 func (db *DB) GetTotalForPeriod(year, month int) (float64, error) {
 	var startDate, endDate time.Time
-	
+
 	if month == 0 {
 		// Year total
 		startDate = time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -248,7 +248,7 @@ func (db *DB) GetExpensesByYear(year int) ([]models.Expense, error) {
 	endOfYear := startOfYear.AddDate(1, 0, 0)
 
 	rows, err := db.conn.Query(
-		"SELECT id, amount, description, category, date FROM expenses WHERE date >= ? AND date < ? ORDER BY date DESC",
+		"SELECT id, amount, description, category, date, user_id FROM expenses WHERE date >= ? AND date < ? ORDER BY date DESC",
 		startOfYear, endOfYear,
 	)
 	if err != nil {
@@ -259,7 +259,7 @@ func (db *DB) GetExpensesByYear(year int) ([]models.Expense, error) {
 	var expenses []models.Expense
 	for rows.Next() {
 		var e models.Expense
-		if err := rows.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date); err != nil {
+		if err := rows.Scan(&e.ID, &e.Amount, &e.Description, &e.Category, &e.Date, &e.UserID); err != nil {
 			return nil, err
 		}
 		expenses = append(expenses, e)
