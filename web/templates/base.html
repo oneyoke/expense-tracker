@@ -36,92 +36,91 @@
     </main>
 
     <!-- Expense Modal (Create/Edit) -->
-    <div class="create-modal-overlay" id="expense-modal" onclick="if(event.target === this) closeExpenseModal()">
-        <div class="create-modal">
-            <header class="modal-header">
-                <button type="button" class="close-btn" onclick="closeExpenseModal()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x-icon lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    <dialog class="expense-dialog" id="expense-modal">
+        <header class="modal-header">
+            <button type="button" class="close-btn" onclick="closeExpenseModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x-icon lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+            <h1 id="modal-title">New Expense</h1>
+            <button type="button" class="remove-btn" id="modal-remove-btn" style="visibility: hidden;" onclick="deleteExpense()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2-icon lucide-trash-2"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+        </header>
+
+        <form class="create-form" method="POST" action="/expenses" hx-post="/expenses" hx-target="#content" id="expense-form">
+            <section class="amount-display">
+                <div class="amount-row">
+                    <div class="amount-hero">
+                        <span class="currency">€</span><span id="modal-display-amount">0</span>
+                    </div>
+                    <button type="button" class="backspace-btn" onclick="modalBackspace()">⌫</button>
+                </div>
+                <input type="hidden" name="amount" id="modal-amount-input" value="0">
+                <input type="text" name="description" placeholder="Add Note" class="note-input" autocomplete="off" id="modal-description">
+            </section>
+
+            <section class="selectors">
+                <div class="selector" onclick="openModalDatePicker()">
+                    <input type="hidden" name="date" id="modal-date-input">
+                    <div class="selector-btn">
+                        <span>📅</span><span id="modal-date-display">Today</span>
+                    </div>
+                </div>
+                <label class="selector">
+                    <select name="category" id="modal-category-select" onchange="updateModalCategoryDisplay(this)">
+                    </select>
+                    <div class="selector-btn">
+                        <span id="modal-cat-icon"></span><span id="modal-category-display">Category</span>
+                    </div>
+                </label>
+            </section>
+
+            <section class="keypad">
+                <button type="button" onclick="modalAppendNum('1')">1</button>
+                <button type="button" onclick="modalAppendNum('2')">2</button>
+                <button type="button" onclick="modalAppendNum('3')">3</button>
+                <button type="button" onclick="modalAppendNum('4')">4</button>
+                <button type="button" onclick="modalAppendNum('5')">5</button>
+                <button type="button" onclick="modalAppendNum('6')">6</button>
+                <button type="button" onclick="modalAppendNum('7')">7</button>
+                <button type="button" onclick="modalAppendNum('8')">8</button>
+                <button type="button" onclick="modalAppendNum('9')">9</button>
+                <button type="button" onclick="modalAppendNum('.')">.</button>
+                <button type="button" onclick="modalAppendNum('0')">0</button>
+                <button type="submit" class="submit">
+                    <span class="submit-icon">✓</span>
+                    <span class="submit-spinner"></span>
                 </button>
-                <h1 id="modal-title">New Expense</h1>
-                <button type="button" class="remove-btn" id="modal-remove-btn" style="visibility: hidden;" onclick="deleteExpense()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2-icon lucide-trash-2"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-            </header>
+            </section>
+        </form>
 
-            <form class="create-form" method="POST" action="/expenses" hx-post="/expenses" hx-target="#content" id="expense-form">
-                <section class="amount-display">
-                    <div class="amount-row">
-                        <div class="amount-hero">
-                            <span class="currency">€</span><span id="modal-display-amount">0</span>
-                        </div>
-                        <button type="button" class="backspace-btn" onclick="modalBackspace()">⌫</button>
-                    </div>
-                    <input type="hidden" name="amount" id="modal-amount-input" value="0">
-                    <input type="text" name="description" placeholder="Add Note" class="note-input" autocomplete="off" id="modal-description">
-                </section>
-
-                <section class="selectors">
-                    <div class="selector" onclick="openModalDatePicker()">
-                        <input type="hidden" name="date" id="modal-date-input">
-                        <div class="selector-btn">
-                            <span>📅</span><span id="modal-date-display">Today</span>
-                        </div>
-                    </div>
-                    <label class="selector">
-                        <select name="category" id="modal-category-select" onchange="updateModalCategoryDisplay(this)">
-                        </select>
-                        <div class="selector-btn">
-                            <span id="modal-cat-icon"></span><span id="modal-category-display">Category</span>
-                        </div>
-                    </label>
-                </section>
-
-                <section class="keypad">
-                    <button type="button" onclick="modalAppendNum('1')">1</button>
-                    <button type="button" onclick="modalAppendNum('2')">2</button>
-                    <button type="button" onclick="modalAppendNum('3')">3</button>
-                    <button type="button" onclick="modalAppendNum('4')">4</button>
-                    <button type="button" onclick="modalAppendNum('5')">5</button>
-                    <button type="button" onclick="modalAppendNum('6')">6</button>
-                    <button type="button" onclick="modalAppendNum('7')">7</button>
-                    <button type="button" onclick="modalAppendNum('8')">8</button>
-                    <button type="button" onclick="modalAppendNum('9')">9</button>
-                    <button type="button" onclick="modalAppendNum('.')">.</button>
-                    <button type="button" onclick="modalAppendNum('0')">0</button>
-                    <button type="submit" class="submit">
-                        <span class="submit-icon">✓</span>
-                        <span class="submit-spinner"></span>
-                    </button>
-                </section>
-            </form>
-
-            <!-- Date Picker Modal (nested) -->
-            <div class="date-modal-overlay" id="modal-date-picker" onclick="if(event.target === this) closeModalDatePicker()">
-                <div class="date-modal">
-                    <div class="calendar-header">
-                        <button type="button" onclick="changeModalMonth(-1)">‹</button>
-                        <h3 id="modal-calendar-month-year">Month Year</h3>
-                        <button type="button" onclick="changeModalMonth(1)">›</button>
-                    </div>
-                    <div class="calendar-grid" id="modal-calendar-grid">
-                        <div class="calendar-day-header">Mo</div>
-                        <div class="calendar-day-header">Tu</div>
-                        <div class="calendar-day-header">We</div>
-                        <div class="calendar-day-header">Th</div>
-                        <div class="calendar-day-header">Fr</div>
-                        <div class="calendar-day-header">Sa</div>
-                        <div class="calendar-day-header">Su</div>
-                    </div>
+        <!-- Date Picker Modal (nested) -->
+        <div class="date-modal-overlay" id="modal-date-picker" onclick="if(event.target === this) closeModalDatePicker()">
+            <div class="date-modal">
+                <div class="calendar-header">
+                    <button type="button" onclick="changeModalMonth(-1)">‹</button>
+                    <h3 id="modal-calendar-month-year">Month Year</h3>
+                    <button type="button" onclick="changeModalMonth(1)">›</button>
+                </div>
+                <div class="calendar-grid" id="modal-calendar-grid">
+                    <div class="calendar-day-header">Mo</div>
+                    <div class="calendar-day-header">Tu</div>
+                    <div class="calendar-day-header">We</div>
+                    <div class="calendar-day-header">Th</div>
+                    <div class="calendar-day-header">Fr</div>
+                    <div class="calendar-day-header">Sa</div>
+                    <div class="calendar-day-header">Su</div>
                 </div>
             </div>
         </div>
-    </div>
+    </dialog>
 
     <script>
     (function() {
         let modalAmt = '0';
         let modalViewDate = new Date();
         let currentExpenseId = null;
+        const modal = document.getElementById('expense-modal');
 
         // Populate category select
         function populateCategories() {
@@ -133,6 +132,11 @@
                 opt.textContent = cat.icon + ' ' + cat.name;
                 select.appendChild(opt);
             });
+        }
+
+        function showModal() {
+            modal.showModal();
+            document.querySelector('meta[name="theme-color"]').content = '#888888';
         }
 
         window.openCreateModal = function() {
@@ -160,17 +164,13 @@
             document.getElementById('modal-category-select').selectedIndex = 0;
             updateModalCategoryDisplay(document.getElementById('modal-category-select'));
             
-            document.getElementById('expense-modal').classList.add('open');
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#808080');
+            showModal();
         };
 
         window.openEditModal = function(id, amount, description, category, date) {
             currentExpenseId = id;
             modalAmt = amount.toString();
-            if (modalAmt.includes('.')) {
-                // Clean up trailing zeros but keep at least one decimal place for display
-                modalAmt = parseFloat(modalAmt).toString();
-            }
+            if (modalAmt.includes('.')) modalAmt = parseFloat(modalAmt).toString();
             
             document.getElementById('modal-title').textContent = 'Edit Expense';
             document.getElementById('modal-display-amount').textContent = modalAmt;
@@ -193,14 +193,22 @@
             select.value = category;
             updateModalCategoryDisplay(select);
             
-            document.getElementById('expense-modal').classList.add('open');
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#808080');
+            showModal();
         };
 
         window.closeExpenseModal = function() {
-            document.getElementById('expense-modal').classList.remove('open');
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff');
+            modal.close();
         };
+
+        // Handle theme-color reset when dialog closes (works for close(), escape key, etc.)
+        modal.addEventListener('close', function() {
+            document.querySelector('meta[name="theme-color"]').content = '#ffffff';
+        });
+
+        // Click on backdrop to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) modal.close();
+        });
 
         // Keep old function name for compatibility
         window.closeCreateModal = closeExpenseModal;
@@ -249,8 +257,7 @@
 
         window.openModalDatePicker = function() {
             const input = document.getElementById('modal-date-input');
-            if (input.value) modalViewDate = new Date(input.value);
-            else modalViewDate = new Date();
+            modalViewDate = input.value ? new Date(input.value) : new Date();
             renderModalCalendar();
             document.getElementById('modal-date-picker').classList.add('open');
         };
@@ -271,14 +278,10 @@
                 timePart = input.value.split('T')[1];
                 if (timePart.length === 5) timePart += ':00';
             } else {
-                const now = new Date();
-                timePart = now.toTimeString().slice(0, 8);
+                timePart = new Date().toTimeString().slice(0, 8);
             }
             const d = new Date(year, month, day);
-            const dateStr = d.getFullYear() + '-' + 
-                           String(d.getMonth() + 1).padStart(2, '0') + '-' + 
-                           String(d.getDate()).padStart(2, '0');
-            input.value = dateStr + 'T' + timePart;
+            input.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + 'T' + timePart;
             updateModalDateDisplay();
             closeModalDatePicker();
         };
@@ -286,14 +289,11 @@
         function renderModalCalendar() {
             const year = modalViewDate.getFullYear();
             const month = modalViewDate.getMonth();
-            const monthNames = ["January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"];
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             document.getElementById('modal-calendar-month-year').textContent = monthNames[month] + ' ' + year;
 
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const daysInMonth = lastDay.getDate();
-            const startDay = (firstDay.getDay() + 6) % 7;
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const startDay = (new Date(year, month, 1).getDay() + 6) % 7;
 
             const grid = document.getElementById('modal-calendar-grid');
             const headers = grid.querySelectorAll('.calendar-day-header');
@@ -314,22 +314,15 @@
                 const div = document.createElement('div');
                 div.className = 'calendar-day';
                 div.textContent = d;
-                if (year === today.getFullYear() && month === today.getMonth() && d === today.getDate()) {
-                    div.classList.add('today');
-                }
-                if (year === inputDate.getFullYear() && month === inputDate.getMonth() && d === inputDate.getDate()) {
-                    div.classList.add('selected');
-                }
+                if (year === today.getFullYear() && month === today.getMonth() && d === today.getDate()) div.classList.add('today');
+                if (year === inputDate.getFullYear() && month === inputDate.getMonth() && d === inputDate.getDate()) div.classList.add('selected');
                 div.onclick = () => selectModalDate(year, month, d);
                 grid.appendChild(div);
             }
         }
 
-        // Close modal when expense form triggers HX-Location (redirect after success)
-        document.body.addEventListener('htmx:beforeOnLoad', function(evt) {
-            if (evt.detail.elt && evt.detail.elt.id === 'expense-form') {
-                closeExpenseModal();
-            }
+        document.body.addEventListener('htmx:beforeSwap', function(evt) {
+            closeExpenseModal();
         });
     })();
     </script>

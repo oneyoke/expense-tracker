@@ -52,6 +52,7 @@ func (s *E2ETestSuite) SetupTest() {
 	page, err := s.browser.NewPage()
 	s.Require().NoError(err, "could not create page")
 	s.page = page
+	s.page.SetDefaultTimeout(1000)
 
 	_, err = s.page.Goto(appURL)
 	s.Require().NoError(err, "could not navigate to app")
@@ -98,7 +99,7 @@ func (s *E2ETestSuite) TestCompleteUserFlow() {
 	s.Require().NoError(err, "failed to click add button")
 
 	// Wait for modal
-	err = s.expect.Locator(s.page.Locator("#expense-modal.open")).ToBeVisible()
+	err = s.expect.Locator(s.page.Locator("#expense-modal[open]")).ToBeVisible()
 	s.Require().NoError(err, "expense modal not visible")
 
 	// Enter Amount: 12.50 using keypad
@@ -160,7 +161,7 @@ func (s *E2ETestSuite) TestAddExpenseToBlankList() {
 	s.Require().NoError(err, "failed to click add button")
 
 	// Wait for the expense modal to appear
-	err = s.expect.Locator(s.page.Locator("#expense-modal.open")).ToBeVisible()
+	err = s.expect.Locator(s.page.Locator("#expense-modal[open]")).ToBeVisible()
 	s.Require().NoError(err, "expense modal not visible")
 
 	// Set the amount to 25.99 using the keypad
@@ -246,7 +247,7 @@ func (s *E2ETestSuite) TestEditExpenseFlow() {
 	s.Require().NoError(err, "failed to submit expense")
 
 	// Wait for modal to close
-	err = s.expect.Locator(s.page.Locator("#expense-modal.open")).Not().ToBeVisible()
+	err = s.expect.Locator(s.page.Locator("#expense-modal[open]")).Not().ToBeVisible()
 	s.Require().NoError(err, "modal should be closed after submit")
 
 	// Verify it exists in the list
@@ -269,7 +270,7 @@ func (s *E2ETestSuite) TestEditExpenseFlow() {
 	s.Require().NoError(err, "failed to click expense item")
 
 	// Verify edit modal is visible
-	err = s.expect.Locator(s.page.Locator("#expense-modal.open")).ToBeVisible()
+	err = s.expect.Locator(s.page.Locator("#expense-modal[open]")).ToBeVisible()
 	s.Require().NoError(err, "edit modal not visible")
 
 	// Verify form is populated
@@ -315,7 +316,7 @@ func (s *E2ETestSuite) TestEditExpenseFlow() {
 	s.Require().NoError(err, "failed to save changes")
 
 	// Ensure modal is closed
-	err = s.expect.Locator(s.page.Locator("#expense-modal.open")).Not().ToBeVisible()
+	err = s.expect.Locator(s.page.Locator("#expense-modal[open]")).Not().ToBeVisible()
 	s.Require().NoError(err, "expense modal still visible after submit")
 
 	// 4. Verify changes in list
@@ -345,7 +346,7 @@ func (s *E2ETestSuite) TestDeleteExpenseFlow() {
 	err := s.page.Locator(".fab-add").Click()
 	s.Require().NoError(err, "failed to click add button")
 
-	err = s.expect.Locator(s.page.Locator("#expense-modal.open")).ToBeVisible()
+	err = s.expect.Locator(s.page.Locator("#expense-modal[open]")).ToBeVisible()
 	s.Require().NoError(err, "expense modal not visible")
 
 	// Set amount to 99.99
@@ -364,7 +365,7 @@ func (s *E2ETestSuite) TestDeleteExpenseFlow() {
 	s.Require().NoError(err, "failed to submit expense")
 
 	// Wait for modal to close
-	err = s.expect.Locator(s.page.Locator("#expense-modal.open")).Not().ToBeVisible()
+	err = s.expect.Locator(s.page.Locator("#expense-modal[open]")).Not().ToBeVisible()
 	s.Require().NoError(err, "modal should be closed after submit")
 
 	// Verify it exists in the list
@@ -384,7 +385,7 @@ func (s *E2ETestSuite) TestDeleteExpenseFlow() {
 	s.Require().NoError(err, "failed to click expense item")
 
 	// Verify edit modal is visible
-	err = s.expect.Locator(s.page.Locator("#expense-modal.open")).ToBeVisible()
+	err = s.expect.Locator(s.page.Locator("#expense-modal[open]")).ToBeVisible()
 	s.Require().NoError(err, "edit modal not visible")
 
 	// Verify the remove button is visible (only on edit mode)
@@ -420,7 +421,7 @@ func (s *E2ETestSuite) TestDeleteButtonNotVisibleOnCreate() {
 	err := s.page.Locator(".fab-add").Click()
 	s.Require().NoError(err, "failed to click add button")
 
-	err = s.expect.Locator(s.page.Locator("#expense-modal.open")).ToBeVisible()
+	err = s.expect.Locator(s.page.Locator("#expense-modal[open]")).ToBeVisible()
 	s.Require().NoError(err, "expense modal not visible")
 
 	// Verify the remove button is NOT visible on create mode (hidden via display:none)
