@@ -177,7 +177,7 @@ function changeViewMode(view, year, month) {
     } else {
         url += '&year=' + year + '&month=' + month;
     }
-    htmx.ajax('GET', url, {target: '#content', swap: 'innerHTML', push: true});
+    setTimeout(htmx.ajax('GET', url, {target: '#content', swap: 'innerHTML', push: true}), 50);
 }
 
 // Initialize chart bar heights

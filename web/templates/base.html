@@ -158,6 +158,7 @@
             updateModalCategoryDisplay(document.getElementById('modal-category-select'));
             
             document.getElementById('expense-modal').classList.add('open');
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#808080');
         };
 
         window.openEditModal = function(id, amount, description, category, date) {
@@ -190,10 +191,12 @@
             updateModalCategoryDisplay(select);
             
             document.getElementById('expense-modal').classList.add('open');
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#808080');
         };
 
         window.closeExpenseModal = function() {
             document.getElementById('expense-modal').classList.remove('open');
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff');
         };
 
         // Keep old function name for compatibility
