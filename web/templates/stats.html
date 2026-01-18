@@ -5,7 +5,7 @@
         <div class="insights-header">
             <h1 class="insights-title">Insights</h1>
             <div class="view-selector">
-                <select id="view-mode-select" onchange="changeViewMode(this.value, {{.Year}}, {{.Month}})">
+                <select id="view-mode-select" onchange="this.blur(); changeViewMode(this.value, {{.Year}}, {{.Month}})">
                     <option value="month" {{if eq .ViewMode "month"}}selected{{end}}>month</option>
                     <option value="year" {{if eq .ViewMode "year"}}selected{{end}}>year</option>
                 </select>
@@ -170,7 +170,7 @@ function changeViewMode(view, year, month) {
     } else {
         url += '&year=' + year + '&month=' + month;
     }
-    setTimeout(htmx.ajax('GET', url, {target: '#content', swap: 'innerHTML', push: true}), 50);
+    htmx.ajax('GET', url, {target: '#content', swap: 'innerHTML', push: true});
 }
 
 // Initialize chart bar heights
