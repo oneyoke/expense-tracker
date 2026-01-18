@@ -333,5 +333,11 @@
     </script>
 
     <script src="/static/pull-to-refresh.js"></script>
+    <script>
+    // Register service worker for instant startup (cache-first)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+    }
+    </script>
 </body>
 </html>
