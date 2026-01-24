@@ -492,6 +492,15 @@ body {
   margin: 0 auto;
 }
 
+/* iOS Safari scroll lock */
+body.modal-open {
+  position: fixed;
+  overflow: hidden;
+  left: 0;
+  right: 0;
+  width: 100%;
+}
+
 .expense-dialog[open] {
   display: flex;
 }
