@@ -163,7 +163,7 @@ body {
 .fab-bar button {
   width: 60px;
   height: 40px;
-  border: none;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: none;
   font-size: 1.25rem;
@@ -172,12 +172,19 @@ body {
   align-items: center;
   justify-content: center;
   color: var(--muted);
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.fab-bar button:active {
+  background: var(--surface);
+  border-color: var(--muted);
+  transform: scale(0.95);
 }
 
 .fab-bar button.active {
   color: var(--text);
-  background: var(--surface)
+  background: var(--surface);
+  border-color: var(--muted);
 }
 
 .fab-bar .fab-add {
@@ -185,11 +192,8 @@ body {
   color: var(--surface);
   font-size: 2rem;
   font-weight: 300;
+  border-color: var(--text);
 }
-
-/*.fab-bar .fab-add:hover {*/
-/*  background: var(--accent);*/
-/*}*/
 
 /* ========== Create/Edit Screen ========== */
 .create-screen,
