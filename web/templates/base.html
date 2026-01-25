@@ -142,7 +142,7 @@
 
         function showModal() {
             scrollY = window.scrollY;
-            document.body.style.top = `-${scrollY}px`;
+            document.documentElement.classList.add('modal-open');
             document.body.classList.add('modal-open');
             modal.showModal();
             document.querySelector('meta[name="theme-color"]').content = '#888888';
@@ -212,8 +212,8 @@
         // Handle theme-color reset when dialog closes (works for close(), escape key, etc.)
         modal.addEventListener('close', function() {
             document.querySelector('meta[name="theme-color"]').content = '#ffffff';
+            document.documentElement.classList.remove('modal-open');
             document.body.classList.remove('modal-open');
-            document.body.style.top = '';
             window.scrollTo(0, scrollY);
         });
 

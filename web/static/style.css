@@ -492,13 +492,10 @@ body {
   margin: 0 auto;
 }
 
-/* iOS Safari scroll lock */
+/* iOS Safari scroll lock - avoid position:fixed which breaks theme-color */
+html.modal-open,
 body.modal-open {
-  position: fixed;
   overflow: hidden;
-  left: 0;
-  right: 0;
-  width: 100%;
   touch-action: none;
   overscroll-behavior: none;
 }
