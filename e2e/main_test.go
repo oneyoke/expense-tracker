@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 func runTestMain(m *testing.M) int {
 	// 1. Build the binary
 	buildPath := filepath.Join(os.TempDir(), "expense-tracker-test")
-	
+
 	// Determine correct path to cmd/server
 	serverPath := "../cmd/server"
 	if _, err := os.Stat(serverPath); os.IsNotExist(err) {

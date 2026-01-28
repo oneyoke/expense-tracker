@@ -78,4 +78,3 @@ func TestSetupRouter(t *testing.T) {
 		})
 	}
 }
-

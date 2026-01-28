@@ -71,13 +71,12 @@
                         <span>📅</span><span id="modal-date-display">Today</span>
                     </div>
                 </div>
-                <label class="selector">
-                    <select name="category" id="modal-category-select" onchange="updateModalCategoryDisplay(this)">
-                    </select>
+                <div class="selector" onclick="openCategoryPicker()">
+                    <input type="hidden" name="category" id="modal-category-input">
                     <div class="selector-btn">
                         <span id="modal-cat-icon"></span><span id="modal-category-display">Category</span>
                     </div>
-                </label>
+                </div>
             </section>
 
             <section class="keypad">
@@ -118,6 +117,14 @@
                 </div>
             </div>
         </div>
+
+        <!-- Category Picker Modal -->
+        <div class="category-modal-overlay" id="modal-category-picker" onclick="if(event.target === this) closeCategoryPicker()">
+            <div class="category-modal">
+                <div class="category-grid" id="modal-category-grid">
+                </div>
+            </div>
+        </div>
     </dialog>
 
     <script>
@@ -128,17 +135,52 @@
         const modal = document.getElementById('expense-modal');
         let scrollY = 0;
 
-        // Populate category select
+        // Populate category grid
         function populateCategories() {
-            const select = document.getElementById('modal-category-select');
-            if (!select || select.options.length > 0) return;
+            const grid = document.getElementById('modal-category-grid');
+            if (!grid || grid.children.length > 0) return;
+            
             window.CATEGORIES.forEach(cat => {
-                const opt = document.createElement('option');
-                opt.value = cat.name;
-                opt.textContent = cat.icon + ' ' + cat.name;
-                select.appendChild(opt);
+                const div = document.createElement('div');
+                div.className = 'category-option';
+                div.onclick = () => selectCategory(cat.name);
+                
+                const icon = document.createElement('span');
+                icon.className = 'category-option-icon';
+                icon.textContent = cat.icon;
+                
+                const name = document.createElement('span');
+                name.className = 'category-option-name';
+                name.textContent = cat.name;
+                
+                div.appendChild(icon);
+                div.appendChild(name);
+                grid.appendChild(div);
             });
         }
+
+        window.openCategoryPicker = function() {
+            populateCategories();
+            const currentCat = document.getElementById('modal-category-input').value;
+            // Highlight selected
+            const grid = document.getElementById('modal-category-grid');
+            Array.from(grid.children).forEach(child => {
+                const name = child.querySelector('.category-option-name').textContent;
+                if (name === currentCat) child.classList.add('selected');
+                else child.classList.remove('selected');
+            });
+            document.getElementById('modal-category-picker').classList.add('open');
+        };
+
+        window.closeCategoryPicker = function() {
+            document.getElementById('modal-category-picker').classList.remove('open');
+        };
+
+        window.selectCategory = function(catName) {
+            document.getElementById('modal-category-input').value = catName;
+            updateModalCategoryDisplay(catName);
+            closeCategoryPicker();
+        };
 
         function showModal() {
             scrollY = window.scrollY;
@@ -169,9 +211,10 @@
             document.getElementById('modal-date-input').value = now.toISOString().slice(0, 19);
             updateModalDateDisplay();
             
-            populateCategories();
-            document.getElementById('modal-category-select').selectedIndex = 0;
-            updateModalCategoryDisplay(document.getElementById('modal-category-select'));
+            // Default category
+            const defaultCat = window.CATEGORIES[0].name;
+            document.getElementById('modal-category-input').value = defaultCat;
+            updateModalCategoryDisplay(defaultCat);
             
             showModal();
         };
@@ -197,10 +240,8 @@
             document.getElementById('modal-date-input').value = date;
             updateModalDateDisplay();
             
-            populateCategories();
-            const select = document.getElementById('modal-category-select');
-            select.value = category;
-            updateModalCategoryDisplay(select);
+            document.getElementById('modal-category-input').value = category;
+            updateModalCategoryDisplay(category);
             
             showModal();
         };
@@ -252,11 +293,13 @@
             document.getElementById('modal-amount-input').value = modalAmt;
         };
 
-        window.updateModalCategoryDisplay = function(sel) {
-            if (!sel) return;
-            const cat = window.CATEGORIES.find(c => c.name === sel.value);
-            document.getElementById('modal-category-display').textContent = sel.value.charAt(0).toUpperCase() + sel.value.slice(1);
-            document.getElementById('modal-cat-icon').textContent = cat ? cat.icon : '📦';
+        window.updateModalCategoryDisplay = function(val) {
+            if (!val) return;
+            const cat = window.CATEGORIES.find(c => c.name === val);
+            if (cat) {
+                document.getElementById('modal-category-display').textContent = val.charAt(0).toUpperCase() + val.slice(1);
+                document.getElementById('modal-cat-icon').textContent = cat.icon;
+            }
         };
 
         function updateModalDateDisplay() {

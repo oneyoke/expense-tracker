@@ -117,10 +117,14 @@ func (s *E2ETestSuite) TestCompleteUserFlow() {
 	err = s.page.Locator("#modal-description").Fill("Lunch Test")
 	s.Require().NoError(err, "failed to fill description")
 
-	// Select category
-	_, err = s.page.Locator("#modal-category-select").SelectOption(playwright.SelectOptionValues{
-		Values: &[]string{"Groceries"},
-	})
+	// Select category using the new category picker
+	err = s.page.Locator(".selector").Nth(1).Click() // Second selector is the category one
+	s.Require().NoError(err, "failed to open category picker")
+
+	err = s.expect.Locator(s.page.Locator("#modal-category-picker.open")).ToBeVisible()
+	s.Require().NoError(err, "category picker modal not visible")
+
+	err = s.page.Locator(".category-option").GetByText("Groceries", playwright.LocatorGetByTextOptions{Exact: playwright.Bool(true)}).Click()
 	s.Require().NoError(err, "failed to select category")
 
 	// Submit
@@ -208,10 +212,14 @@ func (s *E2ETestSuite) TestEditExpenseFlow() {
 	err = s.expect.Locator(s.page.Locator("#expense-form")).ToBeVisible()
 	s.Require().NoError(err, "expense form not visible")
 
-	// Select "transport" category (non-default)
-	_, err = s.page.Locator("#modal-category-select").SelectOption(playwright.SelectOptionValues{
-		Values: &[]string{"Transport"},
-	})
+	// Select "transport" category (non-default) using the new category picker
+	err = s.page.Locator(".selector").Nth(1).Click() // Second selector is the category one
+	s.Require().NoError(err, "failed to open category picker")
+
+	err = s.expect.Locator(s.page.Locator("#modal-category-picker.open")).ToBeVisible()
+	s.Require().NoError(err, "category picker modal not visible")
+
+	err = s.page.Locator(".category-option").GetByText("Transport", playwright.LocatorGetByTextOptions{Exact: playwright.Bool(true)}).Click()
 	s.Require().NoError(err, "failed to select category")
 
 	// Set date to 1st of current month using the custom date picker
